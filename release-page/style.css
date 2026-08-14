@@ -1,0 +1,301 @@
+:root {
+  --primary-blue: #1A365D;
+  --dark-blue: #0F2C59;
+  --accent-gold: #F59E0B;
+  --accent-green: #16A34A;
+  --light-green: #DCFCE7;
+  --bg-light: #F8FAFC;
+  --card-bg: #FFFFFF;
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --border-color: #E2E8F0;
+  --radius-lg: 16px;
+  --radius-md: 10px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Hero Section */
+.hero {
+  background: linear-gradient(135deg, var(--dark-blue) 0%, var(--primary-blue) 100%);
+  color: #FFFFFF;
+  padding: 48px 0 40px 0;
+  text-align: center;
+  border-bottom-left-radius: 28px;
+  border-bottom-right-radius: 28px;
+  box-shadow: 0 10px 25px -5px rgba(15, 44, 89, 0.3);
+}
+
+.app-icon {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 16px auto;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25));
+}
+
+.app-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hero h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+  color: #FFFFFF;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: #CBD5E1;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.version-tag {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+  color: #F8FAFC;
+  backdrop-filter: blur(4px);
+}
+
+.badge-green {
+  background: var(--accent-green);
+  color: #FFFFFF;
+}
+
+/* Cards */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-top: 24px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+.card h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--primary-blue);
+}
+
+/* Download Section */
+.download-card {
+  margin-top: -24px;
+  position: relative;
+  z-index: 10;
+}
+
+.download-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+  color: #FFFFFF;
+  box-shadow: 0 6px 16px -2px rgba(22, 163, 74, 0.4);
+}
+
+.btn-primary:hover {
+  background: #15803D;
+}
+
+.btn-secondary {
+  background: var(--bg-light);
+  color: var(--primary-blue);
+  border: 1.5px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: #E2E8F0;
+}
+
+.btn .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Meta Grid */
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.meta-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Install Steps */
+.install-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.install-steps li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.step-num {
+  width: 28px;
+  height: 28px;
+  background: var(--primary-blue);
+  color: #FFFFFF;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.install-steps strong {
+  display: block;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.install-steps p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.install-steps code {
+  background: #F1F5F9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--primary-blue);
+  font-family: monospace;
+}
+
+/* Changelog */
+.changelog-list {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.changelog-list li {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+/* Security Card */
+.security-card {
+  background: var(--light-green);
+  border-color: #BBF7D0;
+}
+
+.security-content {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.shield-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.security-content h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #14532D;
+  margin-bottom: 2px;
+}
+
+.security-content p {
+  font-size: 13px;
+  color: #166534;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.footer-note {
+  font-size: 11px;
+  color: #94A3B8;
+  margin-top: 4px;
+}
