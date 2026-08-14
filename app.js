@@ -1,7 +1,7 @@
 // Dynamic Release Metadata Loader
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const response = await fetch('release.json');
+    const response = await fetch('release.json?v=' + Date.now(), { cache: 'no-store' });
     if (!response.ok) return;
 
     const data = await response.json();
