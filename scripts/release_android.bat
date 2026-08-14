@@ -1,6 +1,6 @@
 @echo off
 REM ====================================================================
-REM Siya Infotech & Solar Energy - Production Android Release Script
+REM Siya Infotech Staff - Production Android Release Script
 REM ====================================================================
 
 echo [1/6] Cleaning Flutter build...
@@ -26,14 +26,14 @@ if not exist "releases\latest" mkdir releases\latest
 if not exist "release-page\releases\latest" mkdir release-page\releases\latest
 
 echo [6/6] Copying APK to releases and free download page...
-copy /Y "build\app\outputs\flutter-apk\app-release.apk" "releases\Siya-Infotech-Solar-v1.0.0.apk"
-copy /Y "build\app\outputs\flutter-apk\app-release.apk" "releases\latest\Siya-Infotech-Solar-latest.apk"
-copy /Y "build\app\outputs\flutter-apk\app-release.apk" "release-page\releases\Siya-Infotech-Solar-v1.0.0.apk"
-copy /Y "build\app\outputs\flutter-apk\app-release.apk" "release-page\releases\latest\Siya-Infotech-Solar-latest.apk"
+copy /Y "build\app\outputs\flutter-apk\app-release.apk" "releases\Siya-Infotech-Staff-v1.0.0.apk"
+copy /Y "build\app\outputs\flutter-apk\app-release.apk" "releases\latest\Siya-Infotech-Staff-latest.apk"
+copy /Y "build\app\outputs\flutter-apk\app-release.apk" "release-page\releases\Siya-Infotech-Staff-v1.0.0.apk"
+copy /Y "build\app\outputs\flutter-apk\app-release.apk" "release-page\releases\latest\Siya-Infotech-Staff-latest.apk"
 
 echo ====================================================================
 echo SUCCESS! Release APK generated and copied to:
-echo  - releases\Siya-Infotech-Solar-v1.0.0.apk
-echo  - releases\latest\Siya-Infotech-Solar-latest.apk
-echo  - release-page\releases\Siya-Infotech-Solar-v1.0.0.apk
+echo  - releases\Siya-Infotech-Staff-v1.0.0.apk
+echo  - releases\latest\Siya-Infotech-Staff-latest.apk
+echo  - release-page\releases\Siya-Infotech-Staff-v1.0.0.apk
 echo ====================================================================

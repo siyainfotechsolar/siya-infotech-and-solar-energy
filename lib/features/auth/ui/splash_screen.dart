@@ -17,7 +17,7 @@ class SplashScreen extends StatelessWidget {
             ),
             SizedBox(height: 24),
             Text(
-              'SIYA INFOTECH\n& SOLAR ENERGY',
+              'SIYA INFOTECH STAFF',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 24,

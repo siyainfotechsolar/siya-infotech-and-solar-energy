@@ -126,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'SIYA INFOTECH & SOLAR ENERGY',
+                  'SIYA INFOTECH STAFF',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 20,

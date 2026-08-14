@@ -36,7 +36,7 @@ class SolarCrmApp extends ConsumerWidget {
     ref.watch(realtimeServiceProvider);
 
     return MaterialApp.router(
-      title: 'Solar CRM',
+      title: 'Siya Infotech Staff',
       theme: AppTheme.lightTheme,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
