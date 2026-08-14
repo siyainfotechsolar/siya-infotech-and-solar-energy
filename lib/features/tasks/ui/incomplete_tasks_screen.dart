@@ -22,7 +22,7 @@ class _IncompleteTasksScreenState extends ConsumerState<IncompleteTasksScreen> {
   DateTime? _selectedDate;
 
   // Pagination
-  int _pageSize = 15;
+  final int _pageSize = 15;
   int _currentPage = 1;
 
   void _resetFilters() {

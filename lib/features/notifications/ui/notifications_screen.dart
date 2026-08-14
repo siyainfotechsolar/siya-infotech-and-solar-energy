@@ -41,8 +41,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(notificationNotifierProvider);
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
