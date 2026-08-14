@@ -40,7 +40,7 @@ git init
 git add .
 git commit -m "Initial APK release v1.0.0"
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/solar-crm-downloads.git
+git remote add origin https://github.com/siyainfotechsolar/siya-infotech-and-solar-energy.git
 git push -u origin main
 ```
 
@@ -59,7 +59,7 @@ git push -u origin main
 After 1-2 minutes, GitHub will give you a live URL:
 
 ```text
-https://YOUR_USERNAME.github.io/solar-crm-downloads/
+https://siyainfotechsolar.github.io/siya-infotech-and-solar-energy/
 ```
 
 Share this URL with staff members! They can open it on their mobile phone browser and tap **DOWNLOAD APK** to directly install the app.
