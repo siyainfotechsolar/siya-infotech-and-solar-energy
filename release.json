@@ -1,21 +1,18 @@
 {
-  "appName": "Siya Infotech Staff",
+  "appName": "Siya Solar Staff",
   "subtitle": "Official Android Application for Staff & Field Operations",
-  "version": "1.0.1",
-  "versionCode": 2,
+  "version": "1.0.2",
+  "versionCode": 3,
   "releaseDate": "2026-08-15",
   "minAndroidVersion": "Android 7.0 (API level 24)+",
-  "apkSize": "57.6 MB",
-  "apkFile": "releases/Siya-Infotech-Staff-v1.0.1.apk",
-  "latestApk": "releases/latest/Siya-Infotech-Staff-latest.apk",
+  "apkSize": "57.7 MB",
+  "apkFile": "releases/Siya-Solar-Staff-v1.0.2.apk",
+  "latestApk": "releases/latest/Siya-Solar-Staff-latest.apk",
   "changelog": [
-    "v1.0.1: Improved mobile connectivity & network reconnection engine",
-    "Updated app branding to Siya Infotech Staff",
-    "Expanded Android permissions (camera, location, calling, media)",
-    "Unified Staff & Temporary Worker Contact Directory",
-    "Customer CRM & Lead stage management",
-    "Task assignment & Global Incomplete task management",
-    "Material dispatch & Delivery workflow with photo proof",
-    "Supabase Realtime + FCM Push Notifications"
+    "v1.0.2: Production release with App Update Module, custom launcher branding, and Exit Screen",
+    "Added automated Supabase app_releases version check (Optional & Mandatory updates)",
+    "Configured high-density adaptive launcher icons for Siya Solar Staff",
+    "Added Android Exit Screen with assigned pending task calculation",
+    "Preserved staff authentication session and task persistence"
   ]
 }
