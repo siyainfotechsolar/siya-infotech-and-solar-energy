@@ -119,18 +119,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.solar_power_outlined,
-                  size: 80,
-                  color: Color(0xFF1E88E5),
+                Image.asset(
+                  'assets/icon/app_icon.png',
+                  height: 90,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.solar_power,
+                    size: 80,
+                    color: Color(0xFF1E88E5),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'SIYA INFOTECH STAFF',
+                  'SIYA SOLAR STAFF',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
                   ),
                 ),
                 const SizedBox(height: 8),

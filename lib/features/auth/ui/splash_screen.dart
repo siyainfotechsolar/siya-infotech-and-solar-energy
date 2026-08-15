@@ -5,23 +5,28 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.solar_power_outlined,
-              size: 100,
-              color: Color(0xFF1E88E5),
+            Image.asset(
+              'assets/icon/app_icon.png',
+              height: 110,
+              errorBuilder: (context, error, stackTrace) => const Icon(
+                Icons.solar_power,
+                size: 100,
+                color: Color(0xFF1E88E5),
+              ),
             ),
-            SizedBox(height: 24),
-            Text(
-              'SIYA INFOTECH STAFF',
+            const SizedBox(height: 24),
+            const Text(
+              'SIYA SOLAR STAFF',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
               ),
             ),
             SizedBox(height: 16),
