@@ -6,7 +6,8 @@ import 'add_lead_screen.dart';
 import 'lead_details_screen.dart';
 
 class LeadListScreen extends ConsumerStatefulWidget {
-  const LeadListScreen({super.key});
+  final String? filterStatus;
+  const LeadListScreen({super.key, this.filterStatus});
 
   @override
   ConsumerState<LeadListScreen> createState() => _LeadListScreenState();
@@ -78,12 +79,12 @@ class _LeadListScreenState extends ConsumerState<LeadListScreen> {
                   return const SizedBox.shrink();
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
             ],
           )
         : AppBar(
-            title: const Text('Leads'),
+            title: Text(widget.filterStatus != null ? 'Leads (${widget.filterStatus!.toUpperCase()})' : 'Leads'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add),
@@ -95,16 +96,27 @@ class _LeadListScreenState extends ConsumerState<LeadListScreen> {
           ),
       body: leadsAsync.when(
         data: (leads) {
-          if (leads.isEmpty) return const Center(child: Text('No leads found.'));
+          var filtered = leads;
+          if (widget.filterStatus != null) {
+            final target = widget.filterStatus!.toLowerCase();
+            filtered = leads.where((l) {
+              final s = (l['status'] ?? 'pending').toString().toLowerCase();
+              if (target == 'new') return s == 'new' || s == 'pending';
+              if (target == 'follow_up' || target == 'followup') return s == 'follow_up' || s == 'followup' || s == 'contacted';
+              return s == target;
+            }).toList();
+          }
+
+          if (filtered.isEmpty) return const Center(child: Text('No leads found.'));
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(leadListProvider);
               await ref.read(leadListProvider.future);
             },
             child: ListView.builder(
-              itemCount: leads.length,
+              itemCount: filtered.length,
               itemBuilder: (context, index) {
-                final lead = leads[index];
+                final lead = filtered[index];
                 final isConverted = lead['status'] == 'converted';
                 final isSelected = _selectedIds.contains(lead['id']);
 

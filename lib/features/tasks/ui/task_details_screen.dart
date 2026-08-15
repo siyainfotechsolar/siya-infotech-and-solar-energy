@@ -11,6 +11,7 @@ import '../providers/task_provider.dart';
 import '../../../core/services/realtime_service.dart';
 import '../../customers/ui/customer_details_screen.dart';
 import '../../../core/utils/activity_logger.dart';
+import '../../../core/notifications/notification_state.dart';
 
 class TaskDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> task;
@@ -115,7 +116,7 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: selectedReason,
+                      initialValue: selectedReason,
                       decoration: const InputDecoration(labelText: 'Reason *', border: OutlineInputBorder()),
                       items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                       validator: (val) => val == null ? 'Please select a reason.' : null,
@@ -150,6 +151,8 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                     if (formKey.currentState!.validate()) {
                       final reason = selectedReason;
                       final remark = remarkController.text.trim();
+                      // Capture messenger from widget context before async gap
+                      final messenger = ScaffoldMessenger.of(this.context);
                       Navigator.pop(context);
                       
                       setState(() => _isLoading = true);
@@ -202,13 +205,13 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                         ref.invalidate(incompleteTaskListProvider);
 
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(content: Text('Task marked as Not Completed.'), backgroundColor: Colors.orange),
                           );
                         }
                       } catch (e) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
                         }
                       } finally {
                         if (mounted) setState(() => _isLoading = false);
@@ -322,6 +325,8 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                         : () async {
                             Navigator.pop(context);
                             setState(() => _isLoading = true);
+                            // Capture messenger from widget context before async gap
+                            final messenger = ScaffoldMessenger.of(this.context);
                             try {
                               final newStaffId = selectedStaff!['id'];
                               final newStaffName = selectedStaff!['name'];
@@ -353,21 +358,37 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                               // Notify new assigned staff
                               await supabase.from('notifications').insert({
                                 'user_id': newStaffId,
+                                'recipient_user_id': newStaffId,
+                                'notification_type': 'task_assigned',
                                 'title': '🔔 New Task Assigned',
                                 'message': 'You have been reassigned to task:\n${widget.task['name']}\n\nAssigned by:\n$currentStaffName',
+                                'task_id': taskId,
+                                'is_read': false,
+                                'created_at': DateTime.now().toUtc().toIso8601String(),
                               });
+
+                              try {
+                                final notificationRepo = ref.read(notificationRepositoryProvider);
+                                await notificationRepo.sendNotification(
+                                  recipientUserId: newStaffId,
+                                  notificationType: 'task_assigned',
+                                  title: '🔔 New Task Assigned',
+                                  message: 'You have been reassigned to task:\n${widget.task['name']}\n\nAssigned by:\n$currentStaffName',
+                                  taskId: taskId,
+                                );
+                              } catch (_) {}
 
                               ref.invalidate(taskDetailsProvider(taskId));
                               ref.invalidate(incompleteTaskListProvider);
 
                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                messenger.showSnackBar(
                                   SnackBar(content: Text('Task successfully reassigned to $newStaffName!'), backgroundColor: Colors.green),
                                 );
                               }
                             } catch (e) {
                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to reassign: $e')));
+                                messenger.showSnackBar(SnackBar(content: Text('Failed to reassign: $e')));
                               }
                             } finally {
                               if (mounted) setState(() => _isLoading = false);
@@ -466,9 +487,11 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                               });
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error picking photo: $e')),
-                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error picking photo: $e')),
+                              );
+                            }
                           }
                         },
                       ),
@@ -1211,9 +1234,9 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.1),
+        color: c.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: c.withOpacity(0.3)),
+        border: Border.all(color: c.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

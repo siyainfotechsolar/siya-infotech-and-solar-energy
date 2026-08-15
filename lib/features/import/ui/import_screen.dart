@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart' hide Border;
+import 'package:share_plus/share_plus.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../customers/providers/customer_provider.dart';
 import '../../../core/services/global_loading_service.dart';
-import '../../../core/localization/app_strings.dart';
 
 // Model for parsed rows in preview stage
 class PreviewRow {
@@ -189,7 +191,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       final existingMobiles = existingList.map((e) => e['mobile']?.toString().trim()).where((m) => m != null).toSet();
       final existingConsumerNums = existingList
           .map((e) => e['consumer_number']?.toString().trim())
-          .where((c) => c != null && c!.isNotEmpty)
+          .where((c) => c != null && c.isNotEmpty)
           .toSet();
 
       final List<PreviewRow> previewList = [];
@@ -564,9 +566,145 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     }
   }
 
+  Future<void> _downloadSampleCsvTemplate() async {
+    try {
+      final sampleHeaders = _systemFields.map((f) => f['label'] as String).toList();
+      final sampleRow1 = [
+        'Rahul Patil',
+        '9876543210',
+        '123456789012',
+        'Plot 12, Main Street',
+        'Sangli',
+        '3 kW',
+        'Yes',
+        'PM Surya Ghar Application',
+        '2026-08-10',
+        'PSG123456',
+        'Direct',
+        'Customer interested in rooftop installation',
+      ];
+      final sampleRow2 = [
+        'Suresh Sharma',
+        '9123456789',
+        '987654321098',
+        'Sector 4, Near College',
+        'Satara',
+        '5 kW',
+        'No',
+        'Installation',
+        '2026-08-12',
+        'PSG987654',
+        'Agent Referral',
+        'Site survey completed',
+      ];
+
+      final csvRows = [sampleHeaders, sampleRow1, sampleRow2];
+      final csvString = Csv().encode(csvRows);
+      final bytes = Uint8List.fromList(utf8.encode(csvString));
+
+      final String? outputFile = await FilePicker.saveFile(
+        dialogTitle: 'Save Sample CSV Template',
+        fileName: 'customer_import_sample.csv',
+        bytes: bytes,
+      );
+
+      if (outputFile != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sample CSV template saved: $outputFile'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (outputFile == null) {
+        await Share.shareXFiles(
+          [XFile.fromData(bytes, name: 'customer_import_sample.csv', mimeType: 'text/csv')],
+          text: 'Customer Import Sample CSV',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to download sample file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadSampleExcelTemplate() async {
+    try {
+      final excel = Excel.createExcel();
+      final sheetName = excel.tables.keys.first;
+      final sheet = excel[sheetName];
+
+      final sampleHeaders = _systemFields.map((f) => f['label'] as String).toList();
+      final sampleRow1 = [
+        'Rahul Patil',
+        '9876543210',
+        '123456789012',
+        'Plot 12, Main Street',
+        'Sangli',
+        '3 kW',
+        'Yes',
+        'PM Surya Ghar Application',
+        '2026-08-10',
+        'PSG123456',
+        'Direct',
+        'Customer interested in rooftop installation',
+      ];
+      final sampleRow2 = [
+        'Suresh Sharma',
+        '9123456789',
+        '987654321098',
+        'Sector 4, Near College',
+        'Satara',
+        '5 kW',
+        'No',
+        'Installation',
+        '2026-08-12',
+        'PSG987654',
+        'Agent Referral',
+        'Site survey completed',
+      ];
+
+      sheet.appendRow(sampleHeaders.map((e) => TextCellValue(e)).toList());
+      sheet.appendRow(sampleRow1.map((e) => TextCellValue(e)).toList());
+      sheet.appendRow(sampleRow2.map((e) => TextCellValue(e)).toList());
+
+      final fileBytes = excel.save();
+      if (fileBytes != null) {
+        final bytes = Uint8List.fromList(fileBytes);
+        final outputFile = await FilePicker.saveFile(
+          dialogTitle: 'Save Sample Excel Template',
+          fileName: 'customer_import_sample.xlsx',
+          bytes: bytes,
+        );
+
+        if (outputFile != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Sample Excel template saved: $outputFile'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else if (outputFile == null) {
+          await Share.shareXFiles(
+            [XFile.fromData(bytes, name: 'customer_import_sample.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
+            text: 'Customer Import Sample Excel',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to download sample file: $e')),
+        );
+      }
+    }
+  }
+
   // STEP 1: File Selection UI
   Widget _buildFileSelectionStepView() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -590,9 +728,64 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.folder_open),
                     onPressed: _pickFile,
-                    child: const Text('SELECT SPREADSHEET'),
+                    label: const Text('SELECT SPREADSHEET'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            color: Colors.blue.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.download_for_offline_outlined, color: Colors.blue, size: 32),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Need a Sample File?',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Download sample template with example data and correct column headers.',
+                              style: TextStyle(fontSize: 12, color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.description_outlined, size: 16),
+                          label: const Text('Download CSV Sample', style: TextStyle(fontSize: 12)),
+                          onPressed: _downloadSampleCsvTemplate,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.table_chart_outlined, size: 16),
+                          label: const Text('Download Excel Sample', style: TextStyle(fontSize: 12)),
+                          onPressed: _downloadSampleExcelTemplate,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

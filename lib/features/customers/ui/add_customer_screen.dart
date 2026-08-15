@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/date_utils.dart';
 import 'customer_details_screen.dart';
 import '../providers/customer_provider.dart';
 import '../../../core/utils/activity_logger.dart';
-import '../../../core/services/global_loading_service.dart';
-import '../../../core/localization/app_strings.dart';
 
 class AddCustomerScreen extends ConsumerStatefulWidget {
   const AddCustomerScreen({super.key});

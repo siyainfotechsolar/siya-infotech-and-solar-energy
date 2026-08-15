@@ -178,7 +178,7 @@ class _IncompleteTasksScreenState extends ConsumerState<IncompleteTasksScreen> {
                       child: ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         itemCount: paginatedList.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final t = paginatedList[index];
                           final customer = t['customers'] as Map<String, dynamic>?;
@@ -207,10 +207,10 @@ class _IncompleteTasksScreenState extends ConsumerState<IncompleteTasksScreen> {
 
                           return Card(
                             elevation: 2,
-                            shadowColor: Colors.orange.withOpacity(0.1),
+                            shadowColor: Colors.orange.withValues(alpha: 0.1),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.orange.withOpacity(0.2)),
+                              side: BorderSide(color: Colors.orange.withValues(alpha: 0.2)),
                             ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
@@ -220,7 +220,11 @@ class _IncompleteTasksScreenState extends ConsumerState<IncompleteTasksScreen> {
                                   MaterialPageRoute(
                                     builder: (context) => TaskDetailsScreen(task: t),
                                   ),
-                                ).then((_) => ref.invalidate(incompleteTaskListProvider));
+                                ).then((_) {
+                                  if (context.mounted) {
+                                    ref.invalidate(incompleteTaskListProvider);
+                                  }
+                                });
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),

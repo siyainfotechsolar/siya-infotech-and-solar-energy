@@ -124,7 +124,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
             debugPrint('[NotificationState] New notification received via realtime');
             try {
               final newNotif = AppNotification.fromJson(
-                payload.newRecord as Map<String, dynamic>,
+                payload.newRecord,
               );
               state = state.copyWith(
                 notifications: [newNotif, ...state.notifications],

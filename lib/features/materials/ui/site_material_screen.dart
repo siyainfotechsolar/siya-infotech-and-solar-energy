@@ -95,7 +95,7 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         DropdownButtonFormField<String>(
-                          value: selectedMaterial,
+                          initialValue: selectedMaterial,
                           decoration: const InputDecoration(labelText: 'Material Name', border: OutlineInputBorder()),
                           items: const [
                             DropdownMenuItem(value: 'Solar Panel', child: Text('Solar Panel')),
@@ -127,7 +127,7 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<Map<String, dynamic>>(
-                          value: selectedStaff,
+                          initialValue: selectedStaff,
                           decoration: const InputDecoration(labelText: 'Assigned Delivery Staff', border: OutlineInputBorder()),
                           isExpanded: true,
                           items: staffList.map((s) {
@@ -150,7 +150,7 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
                 ),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-                  ElevatedButton(
+                   ElevatedButton(
                     onPressed: () async {
                       if (formKey.currentState!.validate()) {
                         final qty = int.parse(quantityController.text);
@@ -159,6 +159,9 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
 
                         Navigator.pop(context);
                         setState(() => _isCreatingDispatch = true);
+
+                        // Capture messenger from widget context before async gap
+                        final messenger = ScaffoldMessenger.of(this.context);
 
                         try {
                           // Insert dispatch
@@ -178,15 +181,15 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
                           });
 
                           _refreshAll();
-                          
+
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(content: Text('Dispatch created & notification sent to $staffName!'), backgroundColor: Colors.green),
                             );
                           }
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to dispatch: $e')));
+                            messenger.showSnackBar(SnackBar(content: Text('Failed to dispatch: $e')));
                           }
                         } finally {
                           if (mounted) setState(() => _isCreatingDispatch = false);
@@ -287,12 +290,14 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
               }
               
               final shareText = lines.join("\n");
+              // Capture messenger before async gap
+              final messenger = ScaffoldMessenger.of(context);
               try {
                 await SharePlus.instance.share(ShareParams(text: shareText));
               } catch (_) {
                 await Clipboard.setData(ClipboardData(text: shareText));
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(content: Text('Share sheet not supported. Copied to clipboard!')),
                   );
                 }
@@ -543,7 +548,7 @@ class _MaterialCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _statusColor(status).withOpacity(0.1),
+                      color: _statusColor(status).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(

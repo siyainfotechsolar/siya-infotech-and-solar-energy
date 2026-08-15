@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_version_config.dart';
 import '../../../core/services/app_update_service.dart';
@@ -32,7 +31,7 @@ class MoreScreen extends ConsumerWidget {
             accountName: roleAsync.when(
               data: (role) => Text('Role: ${role?.toUpperCase() ?? 'Unknown'}', style: const TextStyle(color: Colors.black)),
               loading: () => const Text('Loading...', style: TextStyle(color: Colors.black)),
-              error: (_, __) => const Text('Error', style: TextStyle(color: Colors.black)),
+              error: (_, _) => const Text('Error', style: TextStyle(color: Colors.black)),
             ),
             accountEmail: Text(user?.email ?? '', style: const TextStyle(color: Colors.black54)),
             currentAccountPicture: ref.watch(currentStaffProfileProvider).when(
@@ -40,7 +39,7 @@ class MoreScreen extends ConsumerWidget {
                 backgroundColor: Colors.blue,
                 child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
               ),
-              error: (_, __) => const CircleAvatar(
+              error: (_, _) => const CircleAvatar(
                 backgroundColor: Colors.blue,
                 child: Icon(Icons.person, color: Colors.white, size: 40),
               ),
@@ -84,7 +83,7 @@ class MoreScreen extends ConsumerWidget {
               return const SizedBox.shrink();
             },
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
           
           // --- Admin Only Items ---
@@ -125,7 +124,7 @@ class MoreScreen extends ConsumerWidget {
               return const SizedBox.shrink();
             },
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
 
           const Divider(),
@@ -237,19 +236,5 @@ class MoreScreen extends ConsumerWidget {
         );
       }
     }
-  }
-  bool _isVersionLessThan(String current, String target) {
-    try {
-      final currentParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final targetParts = target.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      
-      for (var i = 0; i < 3; i++) {
-        final currentPart = currentParts.length > i ? currentParts[i] : 0;
-        final targetPart = targetParts.length > i ? targetParts[i] : 0;
-        if (currentPart < targetPart) return true;
-        if (currentPart > targetPart) return false;
-      }
-    } catch (_) {}
-    return false;
   }
 }

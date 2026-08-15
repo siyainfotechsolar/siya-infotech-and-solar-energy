@@ -109,7 +109,9 @@ class RealtimeService with WidgetsBindingObserver {
             } else if (type == PostgresChangeEvent.delete) {
               ref.read(customerListProvider.notifier).removeCustomer(oldRecord['id']);
             }
-            ref.read(adminKpiProvider.notifier).refreshSilently();
+            ref.invalidate(adminCustomerOverviewProvider);
+            ref.invalidate(adminCustomerAgeProvider);
+            ref.invalidate(adminInstallationOverviewProvider);
             break;
 
           case 'leads':
@@ -118,7 +120,7 @@ class RealtimeService with WidgetsBindingObserver {
             } else if (type == PostgresChangeEvent.delete) {
               ref.read(leadListProvider.notifier).removeLead(oldRecord['id']);
             }
-            ref.read(adminKpiProvider.notifier).refreshSilently();
+            ref.invalidate(adminLeadOverviewProvider);
             break;
 
           case 'tasks':
@@ -139,7 +141,7 @@ class RealtimeService with WidgetsBindingObserver {
                 ref.invalidate(customerTasksProvider(customerId));
               }
             }
-            ref.read(adminKpiProvider.notifier).refreshSilently();
+            ref.invalidate(adminTaskOverviewProvider);
             ref.invalidate(staffDashboardStatsProvider);
             ref.invalidate(incompleteTaskListProvider);
             break;
@@ -154,6 +156,7 @@ class RealtimeService with WidgetsBindingObserver {
             } else if (type == PostgresChangeEvent.delete) {
               ref.read(staffListProvider.notifier).removeStaff(oldRecord['id']);
             }
+            ref.invalidate(adminStaffOverviewProvider);
             break;
 
           case 'task_staff':
@@ -230,7 +233,12 @@ class RealtimeService with WidgetsBindingObserver {
     ref.invalidate(leadListProvider);
     ref.invalidate(taskListProvider);
     ref.invalidate(staffListProvider);
-    ref.read(adminKpiProvider.notifier).refreshSilently();
+    ref.invalidate(adminCustomerOverviewProvider);
+    ref.invalidate(adminCustomerAgeProvider);
+    ref.invalidate(adminLeadOverviewProvider);
+    ref.invalidate(adminTaskOverviewProvider);
+    ref.invalidate(adminInstallationOverviewProvider);
+    ref.invalidate(adminStaffOverviewProvider);
     ref.invalidate(staffDashboardStatsProvider);
     
     // Refresh active details screens if they are open

@@ -281,7 +281,7 @@ class _TemporaryContactsScreenState extends ConsumerState<TemporaryContactsScree
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             itemCount: _filteredContacts.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            separatorBuilder: (_, _) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final contact = _filteredContacts[index];
                               final name = contact['name'] ?? 'N/A';

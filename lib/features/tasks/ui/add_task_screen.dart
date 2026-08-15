@@ -9,6 +9,7 @@ import 'widgets/task_name_search_field.dart';
 import '../../../core/utils/activity_logger.dart';
 import '../../../core/services/global_loading_service.dart';
 import '../../../core/localization/app_strings.dart';
+import '../../../core/notifications/notification_state.dart';
 
 class AddTaskScreen extends ConsumerStatefulWidget {
   final String? initialCustomerId;
@@ -163,6 +164,42 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
           await supabase.from('task_staff').insert(staffMappings);
 
+          // Get creator admin name
+          String adminName = 'Admin';
+          if (user != null) {
+            try {
+              final staffNameRes = await supabase.from('staff').select('name').eq('id', user.id).maybeSingle();
+              if (staffNameRes?['name'] != null) adminName = staffNameRes!['name'];
+            } catch (_) {}
+          }
+
+          // Notify assigned staff members
+          for (final staffId in _selectedStaffIds) {
+            try {
+              await supabase.from('notifications').insert({
+                'user_id': staffId,
+                'recipient_user_id': staffId,
+                'notification_type': 'task_assigned',
+                'title': '🔔 New Task Assigned',
+                'message': 'You have been assigned to task:\n${_taskName!.trim()}\n\nAssigned by:\n$adminName',
+                'task_id': taskId,
+                'is_read': false,
+                'created_at': DateTime.now().toUtc().toIso8601String(),
+              });
+
+              final notificationRepo = ref.read(notificationRepositoryProvider);
+              await notificationRepo.sendNotification(
+                recipientUserId: staffId,
+                notificationType: 'task_assigned',
+                title: '🔔 New Task Assigned',
+                message: 'You have been assigned to task:\n${_taskName!.trim()}\n\nAssigned by:\n$adminName',
+                taskId: taskId,
+              );
+            } catch (err) {
+              debugPrint('[AddTaskScreen] Failed to notify staff $staffId: $err');
+            }
+          }
+
           // Upload attachments
           for (final att in _attachments) {
             final bytes = att['bytes'] as Uint8List;
@@ -255,7 +292,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Priority'),
-                value: _priority,
+                initialValue: _priority,
                 items: const [
                   DropdownMenuItem(value: 'low', child: Text('Low')),
                   DropdownMenuItem(value: 'normal', child: Text('Normal')),

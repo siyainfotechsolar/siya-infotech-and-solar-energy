@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class AddLeadScreen extends ConsumerStatefulWidget {
@@ -84,7 +83,7 @@ class _AddLeadScreenState extends ConsumerState<AddLeadScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _source,
+                initialValue: _source,
                 decoration: const InputDecoration(labelText: 'Source'),
                 items: const [
                   DropdownMenuItem(value: 'Manual', child: Text('Manual')),

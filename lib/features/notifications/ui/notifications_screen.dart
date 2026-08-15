@@ -53,11 +53,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           if (state.unreadCount > 0)
             TextButton(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
                 await ref
                     .read(notificationNotifierProvider.notifier)
                     .markAllAsRead();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(content: Text('All notifications marked as read.')),
                   );
                 }
@@ -191,7 +192,7 @@ class _NotificationList extends StatelessWidget {
         controller: scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: notifications.length + (hasMore ? 1 : 0),
-        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+        separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
         itemBuilder: (context, index) {
           if (index >= notifications.length) {
             return isLoading

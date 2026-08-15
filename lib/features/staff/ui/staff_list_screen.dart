@@ -252,7 +252,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: filter.role,
+                    initialValue: filter.role,
                     decoration: const InputDecoration(labelText: 'Role', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)),
                     items: const [
                       DropdownMenuItem(value: 'All', child: Text('All Roles')),
@@ -269,7 +269,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: filter.status,
+                    initialValue: filter.status,
                     decoration: const InputDecoration(labelText: 'Status', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)),
                     items: const [
                       DropdownMenuItem(value: 'All', child: Text('All Statuses')),
@@ -914,7 +914,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: filteredTasks.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final t = filteredTasks[i];
                       final tStatus = t['status'] as String? ?? 'pending';
@@ -947,7 +947,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                           trailing: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.12),
+                              color: statusColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -1106,7 +1106,7 @@ class _StaffTasksScreenState extends ConsumerState<StaffTasksScreen> {
                 return ListView.separated(
                   itemCount: tasks.length,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, idx) {
                     final t = tasks[idx];
                     final tStatus = t['status'] as String? ?? 'pending';
@@ -1134,7 +1134,7 @@ class _StaffTasksScreenState extends ConsumerState<StaffTasksScreen> {
                         ),
                         trailing: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                           child: Text(tStatus.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
                         ),
                       ),
@@ -1204,7 +1204,7 @@ class StaffSitesScreen extends ConsumerWidget {
           return ListView.separated(
             itemCount: sites.length,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, idx) {
               final c = sites[idx];
               return Card(
@@ -1455,7 +1455,7 @@ class _EditStaffDialogState extends ConsumerState<_EditStaffDialog> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _role,
+              initialValue: _role,
               decoration: const InputDecoration(labelText: 'Role'),
               items: const [
                 DropdownMenuItem(value: 'admin', child: Text('Admin')),
@@ -1467,7 +1467,7 @@ class _EditStaffDialogState extends ConsumerState<_EditStaffDialog> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _status,
+              initialValue: _status,
               decoration: const InputDecoration(labelText: 'Status'),
               items: const [
                 DropdownMenuItem(value: 'active', child: Text('Active')),

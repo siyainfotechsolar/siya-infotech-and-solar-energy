@@ -15,7 +15,13 @@ import '../../../core/widgets/global_loading_overlay.dart';
 class CustomerListScreen extends ConsumerStatefulWidget {
   final bool filterPriority;
   final String? filterAgeRange;
-  const CustomerListScreen({super.key, this.filterPriority = false, this.filterAgeRange});
+  final List<String>? filterStages;
+  const CustomerListScreen({
+    super.key,
+    this.filterPriority = false,
+    this.filterAgeRange,
+    this.filterStages,
+  });
 
   @override
   ConsumerState<CustomerListScreen> createState() => _CustomerListScreenState();
@@ -32,10 +38,13 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(customerFilterProvider.notifier).updateFilter(CustomerFilter(
-        priority: widget.filterPriority ? true : null,
-        ageRange: widget.filterAgeRange,
-      ));
+      if (mounted) {
+        ref.read(customerFilterProvider.notifier).updateFilter(CustomerFilter(
+          priority: widget.filterPriority ? true : null,
+          ageRange: widget.filterAgeRange,
+          stages: widget.filterStages ?? const [],
+        ));
+      }
     });
   }
 

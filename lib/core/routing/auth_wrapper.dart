@@ -10,7 +10,6 @@ import '../../features/home/ui/staff_dashboard_screen.dart';
 import '../services/app_update_service.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_state.dart';
-import '../notifications/notification_repository.dart';
 
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});

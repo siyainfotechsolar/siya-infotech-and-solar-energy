@@ -20,7 +20,7 @@ class GlobalLoadingOverlay extends ConsumerWidget {
     return PopScope(
       canPop: false,
       child: Material(
-        color: Colors.black.withOpacity(0.60),
+        color: Colors.black.withValues(alpha: 0.60),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32.0),

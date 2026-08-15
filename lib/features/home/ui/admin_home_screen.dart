@@ -2,111 +2,217 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../customers/ui/customer_list_screen.dart';
-import '../../customers/providers/customer_provider.dart';
-import '../../tasks/ui/task_list_screen.dart';
+import '../../customers/ui/add_customer_screen.dart';
 import '../../leads/ui/lead_list_screen.dart';
+import '../../leads/ui/add_lead_screen.dart';
+import '../../tasks/ui/task_list_screen.dart';
+import '../../tasks/ui/add_task_screen.dart';
+import '../../tasks/ui/incomplete_tasks_screen.dart';
+import '../../staff/ui/staff_directory_screen.dart';
+import '../../staff/ui/staff_list_screen.dart';
+import '../../staff/ui/add_staff_screen.dart';
+import '../../import/ui/import_screen.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../notifications/ui/notifications_screen.dart';
 
-class AdminKpiNotifier extends AsyncNotifier<Map<String, int>> {
-  @override
-  Future<Map<String, int>> build() async {
-    return _fetchKpis();
-  }
+// ─── SECTION 1: CUSTOMER OVERVIEW PROVIDER ─────────────────────────────────
+final adminCustomerOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final supabase = ref.watch(supabaseClientProvider);
+  final now = DateTime.now();
+  final d7 = now.subtract(const Duration(days: 7)).toIso8601String().split('T').first;
 
-  Future<Map<String, int>> _fetchKpis() async {
-    final supabase = ref.read(supabaseClientProvider);
-    final now = DateTime.now();
+  final totalRes = await supabase.from('customers').select('id');
+  final newRes = await supabase.from('customers').select('id').gte('application_date', d7);
 
-    final d8 = now.subtract(const Duration(days: 8)).toIso8601String().split('T').first;
-    final d14 = now.subtract(const Duration(days: 14)).toIso8601String().split('T').first;
-    final d15 = now.subtract(const Duration(days: 15)).toIso8601String().split('T').first;
-    final d29 = now.subtract(const Duration(days: 29)).toIso8601String().split('T').first;
-    final d30 = now.subtract(const Duration(days: 30)).toIso8601String().split('T').first;
+  return {
+    'total': (totalRes as List).length,
+    'new': (newRes as List).length,
+  };
+});
 
-    final todayStart = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
-    final customersRes = await supabase.from('customers').select('id');
-    final pendingRes = await supabase.from('tasks').select('id').neq('status', 'completed');
-    final todayRes = await supabase.from('tasks').select('id').gte('created_at', todayStart).neq('status', 'completed');
-    final highPriorityRes = await supabase.from('tasks').select('id').eq('priority', 'high').neq('status', 'completed');
-    final starredRes = await supabase.from('customers').select('id').eq('priority', true);
-    final leadsRes = await supabase.from('leads').select('id').neq('status', 'converted');
-    
-    final attentionRes = await supabase.from('customers').select('id').lte('application_date', d8).gte('application_date', d14);
-    final priorityRes = await supabase.from('customers').select('id').lte('application_date', d15).gte('application_date', d29);
-    final criticalRes = await supabase.from('customers').select('id').lte('application_date', d30);
+// ─── SECTION 2: CUSTOMER AGE PROVIDER ──────────────────────────────────────
+final adminCustomerAgeProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final supabase = ref.watch(supabaseClientProvider);
+  final now = DateTime.now();
 
-    return {
-      'customers': (customersRes as List).length,
-      'pending': (pendingRes as List).length,
-      'today': (todayRes as List).length,
-      'high_priority': (highPriorityRes as List).length,
-      'starred': (starredRes as List).length,
-      'leads': (leadsRes as List).length,
-      'attention': (attentionRes as List).length,
-      'priority': (priorityRes as List).length,
-      'critical': (criticalRes as List).length,
-    };
-  }
+  final d7 = now.subtract(const Duration(days: 7)).toIso8601String().split('T').first;
+  final d8 = now.subtract(const Duration(days: 8)).toIso8601String().split('T').first;
+  final d14 = now.subtract(const Duration(days: 14)).toIso8601String().split('T').first;
+  final d15 = now.subtract(const Duration(days: 15)).toIso8601String().split('T').first;
+  final d29 = now.subtract(const Duration(days: 29)).toIso8601String().split('T').first;
+  final d30 = now.subtract(const Duration(days: 30)).toIso8601String().split('T').first;
 
-  Future<void> refreshSilently() async {
-    try {
-      final kpis = await _fetchKpis();
-      state = AsyncData(kpis);
-    } catch (e) {
-      // Ignored
-    }
-  }
-}
+  final d0to7Res = await supabase.from('customers').select('id').gte('application_date', d7);
+  final d8to14Res = await supabase.from('customers').select('id').lte('application_date', d8).gte('application_date', d14);
+  final d15to29Res = await supabase.from('customers').select('id').lte('application_date', d15).gte('application_date', d29);
+  final d30plusRes = await supabase.from('customers').select('id').lte('application_date', d30);
 
-final adminKpiProvider = AsyncNotifierProvider<AdminKpiNotifier, Map<String, int>>(AdminKpiNotifier.new);
+  return {
+    'd0to7': (d0to7Res as List).length,
+    'd8to14': (d8to14Res as List).length,
+    'd15to29': (d15to29Res as List).length,
+    'd30plus': (d30plusRes as List).length,
+  };
+});
 
+// ─── SECTION 3: LEAD OVERVIEW PROVIDER ─────────────────────────────────────
+final adminLeadOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final supabase = ref.watch(supabaseClientProvider);
+
+  final totalRes = await supabase.from('leads').select('id');
+  final newRes = await supabase.from('leads').select('id').inFilter('status', ['new', 'pending']);
+  final followUpRes = await supabase.from('leads').select('id').inFilter('status', ['follow_up', 'followup', 'contacted']);
+  final convertedRes = await supabase.from('leads').select('id').eq('status', 'converted');
+  final lostRes = await supabase.from('leads').select('id').eq('status', 'lost');
+
+  return {
+    'total': (totalRes as List).length,
+    'new': (newRes as List).length,
+    'followUp': (followUpRes as List).length,
+    'converted': (convertedRes as List).length,
+    'lost': (lostRes as List).length,
+  };
+});
+
+// ─── SECTION 4: TASK OVERVIEW PROVIDER ─────────────────────────────────────
+final adminTaskOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final supabase = ref.watch(supabaseClientProvider);
+
+  final pendingRes = await supabase.from('tasks').select('id').ilike('status', 'pending');
+  final inProgressRes = await supabase.from('tasks').select('id').ilike('status', 'in_progress');
+  final incompleteRes = await supabase.from('tasks').select('id').ilike('status', 'not_completed');
+  final completedRes = await supabase.from('tasks').select('id').ilike('status', 'completed');
+
+  return {
+    'pending': (pendingRes as List).length,
+    'inProgress': (inProgressRes as List).length,
+    'incomplete': (incompleteRes as List).length,
+    'completed': (completedRes as List).length,
+  };
+});
+
+// ─── SECTION 5: INSTALLATION OVERVIEW PROVIDER ────────────────────────────
+final adminInstallationOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final supabase = ref.watch(supabaseClientProvider);
+
+  final instPendingRes = await supabase.from('customers').select('id').eq('stage', 'Installation');
+  final rtsPendingRes = await supabase.from('customers').select('id').eq('stage', 'RTS');
+  final subsidyPendingRes = await supabase.from('customers').select('id').eq('stage', 'Subsidy');
+  final completedRes = await supabase.from('customers').select('id').eq('stage', 'Completed');
+
+  return {
+    'installationPending': (instPendingRes as List).length,
+    'rtsPending': (rtsPendingRes as List).length,
+    'subsidyPending': (subsidyPendingRes as List).length,
+    'completed': (completedRes as List).length,
+  };
+});
+
+// ─── SECTION 6: STAFF OVERVIEW PROVIDER ───────────────────────────────────
+final adminStaffOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final supabase = ref.watch(supabaseClientProvider);
+
+  final totalRes = await supabase.from('staff').select('id');
+  final activeRes = await supabase.from('staff').select('id').eq('status', 'active');
+  
+  final pendingStaffRes = await supabase.from('task_staff').select('staff_id, tasks!inner(status)').inFilter('tasks.status', ['pending', 'in_progress']);
+  final incompleteStaffRes = await supabase.from('task_staff').select('staff_id, tasks!inner(status)').eq('tasks.status', 'not_completed');
+
+  final pendingStaffSet = (pendingStaffRes as List).map((e) => e['staff_id']).toSet();
+  final incompleteStaffSet = (incompleteStaffRes as List).map((e) => e['staff_id']).toSet();
+
+  return {
+    'total': (totalRes as List).length,
+    'active': (activeRes as List).length,
+    'withPending': pendingStaffSet.length,
+    'withIncomplete': incompleteStaffSet.length,
+  };
+});
+
+// ─── MAIN ADMIN HOME SCREEN ────────────────────────────────────────────────
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
 
+  void _refreshAll(WidgetRef ref) {
+    ref.invalidate(adminCustomerOverviewProvider);
+    ref.invalidate(adminCustomerAgeProvider);
+    ref.invalidate(adminLeadOverviewProvider);
+    ref.invalidate(adminTaskOverviewProvider);
+    ref.invalidate(adminInstallationOverviewProvider);
+    ref.invalidate(adminStaffOverviewProvider);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final kpiAsync = ref.watch(adminKpiProvider);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          _NotificationBell(),
+          const _NotificationBell(),
           IconButton(
+            tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(adminKpiProvider),
+            onPressed: () => _refreshAll(ref),
           ),
         ],
       ),
-      body: kpiAsync.when(
-        data: (kpi) => _KpiGrid(kpi: kpi),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorState(onRetry: () => ref.invalidate(adminKpiProvider)),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _ErrorState({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(Icons.wifi_off, size: 56, color: Colors.grey.shade400),
+            // 2. ADMIN WELCOME
+            const _AdminWelcomeSection(),
+            const SizedBox(height: 20),
+
+            // 3. CUSTOMER OVERVIEW
+            const _SectionHeader(title: 'CUSTOMERS'),
+            const SizedBox(height: 8),
+            const _CustomerOverviewSection(),
+            const SizedBox(height: 20),
+
+            // 4. CUSTOMER AGE
+            const _SectionHeader(title: 'CUSTOMER AGE'),
+            const SizedBox(height: 8),
+            const _CustomerAgeSection(),
+            const SizedBox(height: 20),
+
+            // 5. LEAD OVERVIEW
+            const _SectionHeader(title: 'LEADS'),
+            const SizedBox(height: 8),
+            const _LeadOverviewSection(),
+            const SizedBox(height: 20),
+
+            // 6. TASK OVERVIEW
+            const _SectionHeader(title: 'TASKS'),
+            const SizedBox(height: 8),
+            const _TaskOverviewSection(),
+            const SizedBox(height: 20),
+
+            // 7. INSTALLATION OVERVIEW
+            const _SectionHeader(title: 'INSTALLATION'),
+            const SizedBox(height: 8),
+            const _InstallationOverviewSection(),
+            const SizedBox(height: 20),
+
+            // 8. STAFF OVERVIEW
+            const _SectionHeader(title: 'STAFF'),
+            const SizedBox(height: 8),
+            const _StaffOverviewSection(),
+            const SizedBox(height: 20),
+
+            // 9. IMPORTANT / ATTENTION
+            const _SectionHeader(title: 'IMPORTANT'),
+            const SizedBox(height: 8),
+            const _ImportantAlertsSection(),
+            const SizedBox(height: 20),
+
+            // 10. QUICK ACTIONS
+            const _SectionHeader(title: 'QUICK ACTIONS'),
             const SizedBox(height: 12),
-            const Text('Could not load dashboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 4),
-            Text('Check your internet connection', style: TextStyle(color: Colors.grey.shade600)),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+            const _QuickActionsSection(),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -114,104 +220,653 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-class _KpiGrid extends ConsumerWidget {
-  final Map<String, int> kpi;
-  const _KpiGrid({required this.kpi});
-
-  void _navToCustomers(BuildContext context, WidgetRef ref, {bool priority = false, String? ageRange}) async {
-    final previous = ref.read(customerFilterProvider);
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerListScreen(filterPriority: priority, filterAgeRange: ageRange)));
-    ref.read(customerFilterProvider.notifier).updateFilter(previous);
-  }
+// ─── 2. ADMIN WELCOME SECTION ───────────────────────────────────────────────
+class _AdminWelcomeSection extends ConsumerWidget {
+  const _AdminWelcomeSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    final profileAsync = ref.watch(currentStaffProfileProvider);
+    final adminName = profileAsync.when(
+      data: (p) => (p?['name'] as String?)?.isNotEmpty == true ? p!['name'] : 'Admin',
+      loading: () => 'Admin',
+      error: (e, _) => 'Admin',
+    );
+
+    return Container(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Row(
         children: [
-          _KpiCard(
-            title: 'Total Customers',
-            count: kpi['customers'] ?? 0,
-            icon: Icons.people,
-            color: Colors.blue,
-            onTap: () => _navToCustomers(context, ref),
+          CircleAvatar(
+            backgroundColor: Theme.of(context).primaryColor,
+            child: const Icon(Icons.security, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Good Morning, $adminName',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Administrator',
+                style: TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 3. CUSTOMER OVERVIEW WIDGET ───────────────────────────────────────────
+class _CustomerOverviewSection extends ConsumerWidget {
+  const _CustomerOverviewSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(adminCustomerOverviewProvider);
+
+    return asyncData.when(
+      data: (data) => Row(
+        children: [
+          Expanded(
+            child: _KpiCard(
+              title: 'TOTAL CUSTOMERS',
+              count: data['total'] ?? 0,
+              icon: Icons.people_alt_outlined,
+              color: Colors.blue,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen())),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _KpiCard(
+              title: 'NEW CUSTOMERS',
+              count: data['new'] ?? 0,
+              icon: Icons.person_add_outlined,
+              color: Colors.blue,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterAgeRange: '0–7'))),
+            ),
+          ),
+        ],
+      ),
+      loading: () => const _SectionSkeleton(height: 90),
+      error: (e, _) => _SectionErrorTile(onRetry: () => ref.invalidate(adminCustomerOverviewProvider)),
+    );
+  }
+}
+
+// ─── 4. CUSTOMER AGE WIDGET ────────────────────────────────────────────────
+class _CustomerAgeSection extends ConsumerWidget {
+  const _CustomerAgeSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(adminCustomerAgeProvider);
+
+    return asyncData.when(
+      data: (data) => Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'NEW (0–7 DAYS)',
+                  count: data['d0to7'] ?? 0,
+                  icon: Icons.new_releases_outlined,
+                  color: Colors.blue,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterAgeRange: '0–7'))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'ATTENTION (8–14 DAYS)',
+                  count: data['d8to14'] ?? 0,
+                  icon: Icons.error_outline,
+                  color: Colors.amber.shade800,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterAgeRange: '8–14'))),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: _KpiCard(
-              title: 'Pending Tasks',
-              count: kpi['pending'] ?? 0,
-              icon: Icons.pending_actions,
-              color: Colors.orange,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _KpiCard(
-              title: "Today's Tasks",
-              count: kpi['today'] ?? 0,
-              icon: Icons.today,
-              color: Colors.green,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
-            )),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: _KpiCard(
-              title: 'High Priority',
-              count: kpi['high_priority'] ?? 0,
-              icon: Icons.warning_amber,
-              color: Colors.red,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0, initialFilterPriority: 'high'))),
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _KpiCard(
-              title: 'Starred',
-              count: kpi['starred'] ?? 0,
-              icon: Icons.star,
-              color: Colors.amber,
-              onTap: () => _navToCustomers(context, ref, priority: true),
-            )),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: _KpiCard(
-              title: 'Attention (8-14 Days)',
-              count: kpi['attention'] ?? 0,
-              icon: Icons.error_outline,
-              color: Colors.orange,
-              onTap: () => _navToCustomers(context, ref, ageRange: '8–14'),
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _KpiCard(
-              title: 'Priority (15-29 Days)',
-              count: kpi['priority'] ?? 0,
-              icon: Icons.priority_high,
-              color: Colors.deepOrange,
-              onTap: () => _navToCustomers(context, ref, ageRange: '15–29'),
-            )),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: _KpiCard(
-              title: 'Critical (30+ Days)',
-              count: kpi['critical'] ?? 0,
-              icon: Icons.dangerous,
-              color: Colors.red,
-              onTap: () => _navToCustomers(context, ref, ageRange: '30+'),
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _KpiCard(
-              title: 'New Leads',
-              count: kpi['leads'] ?? 0,
-              icon: Icons.leaderboard,
-              color: Colors.teal,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeadListScreen())),
-            )),
-          ]),
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'PRIORITY (15–29 DAYS)',
+                  count: data['d15to29'] ?? 0,
+                  icon: Icons.priority_high,
+                  color: Colors.deepOrange,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterAgeRange: '15–29'))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'OVERDUE (30+ DAYS)',
+                  count: data['d30plus'] ?? 0,
+                  icon: Icons.dangerous_outlined,
+                  color: Colors.red,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterAgeRange: '30+'))),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+      loading: () => const _SectionSkeleton(height: 190),
+      error: (e, _) => _SectionErrorTile(onRetry: () => ref.invalidate(adminCustomerAgeProvider)),
+    );
+  }
+}
+
+// ─── 5. LEAD OVERVIEW WIDGET ───────────────────────────────────────────────
+class _LeadOverviewSection extends ConsumerWidget {
+  const _LeadOverviewSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(adminLeadOverviewProvider);
+
+    return asyncData.when(
+      data: (data) => Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'TOTAL LEADS',
+                  count: data['total'] ?? 0,
+                  icon: Icons.leaderboard_outlined,
+                  color: Colors.blue,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeadListScreen())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'NEW LEADS',
+                  count: data['new'] ?? 0,
+                  icon: Icons.add_circle_outline,
+                  color: Colors.blue,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeadListScreen(filterStatus: 'new'))),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'FOLLOW-UP',
+                  count: data['followUp'] ?? 0,
+                  icon: Icons.phone_callback_outlined,
+                  color: Colors.amber.shade800,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeadListScreen(filterStatus: 'follow_up'))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'CONVERTED',
+                  count: data['converted'] ?? 0,
+                  icon: Icons.task_alt_outlined,
+                  color: Colors.green,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeadListScreen(filterStatus: 'converted'))),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _KpiCard(
+            title: 'LOST',
+            count: data['lost'] ?? 0,
+            icon: Icons.cancel_outlined,
+            color: Colors.red,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeadListScreen(filterStatus: 'lost'))),
+          ),
+        ],
+      ),
+      loading: () => const _SectionSkeleton(height: 270),
+      error: (e, _) => _SectionErrorTile(onRetry: () => ref.invalidate(adminLeadOverviewProvider)),
+    );
+  }
+}
+
+// ─── 6. TASK OVERVIEW WIDGET ───────────────────────────────────────────────
+class _TaskOverviewSection extends ConsumerWidget {
+  const _TaskOverviewSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(adminTaskOverviewProvider);
+
+    return asyncData.when(
+      data: (data) => Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'PENDING',
+                  count: data['pending'] ?? 0,
+                  icon: Icons.pending_actions_outlined,
+                  color: Colors.orange,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'IN PROGRESS',
+                  count: data['inProgress'] ?? 0,
+                  icon: Icons.autorenew_outlined,
+                  color: Colors.blue,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'INCOMPLETE',
+                  count: data['incomplete'] ?? 0,
+                  icon: Icons.warning_amber_outlined,
+                  color: Colors.red,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IncompleteTasksScreen())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'COMPLETED',
+                  count: data['completed'] ?? 0,
+                  icon: Icons.check_circle_outline,
+                  color: Colors.green,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 1))),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      loading: () => const _SectionSkeleton(height: 190),
+      error: (e, _) => _SectionErrorTile(onRetry: () => ref.invalidate(adminTaskOverviewProvider)),
+    );
+  }
+}
+
+// ─── 7. INSTALLATION OVERVIEW WIDGET ───────────────────────────────────────
+class _InstallationOverviewSection extends ConsumerWidget {
+  const _InstallationOverviewSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(adminInstallationOverviewProvider);
+
+    return asyncData.when(
+      data: (data) => Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'INSTALLATION PENDING',
+                  count: data['installationPending'] ?? 0,
+                  icon: Icons.build_outlined,
+                  color: Colors.orange,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['Installation']))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'RTS PENDING',
+                  count: data['rtsPending'] ?? 0,
+                  icon: Icons.assignment_outlined,
+                  color: Colors.teal,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['RTS']))),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'SUBSIDY PENDING',
+                  count: data['subsidyPending'] ?? 0,
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: Colors.amber.shade800,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['Subsidy']))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'COMPLETED',
+                  count: data['completed'] ?? 0,
+                  icon: Icons.verified_outlined,
+                  color: Colors.green,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['Completed']))),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      loading: () => const _SectionSkeleton(height: 190),
+      error: (e, _) => _SectionErrorTile(onRetry: () => ref.invalidate(adminInstallationOverviewProvider)),
+    );
+  }
+}
+
+// ─── 8. STAFF OVERVIEW WIDGET ──────────────────────────────────────────────
+class _StaffOverviewSection extends ConsumerWidget {
+  const _StaffOverviewSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(adminStaffOverviewProvider);
+
+    return asyncData.when(
+      data: (data) => Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'TOTAL STAFF',
+                  count: data['total'] ?? 0,
+                  icon: Icons.badge_outlined,
+                  color: Colors.blue,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffDirectoryScreen())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'ACTIVE STAFF',
+                  count: data['active'] ?? 0,
+                  icon: Icons.check_circle_outline,
+                  color: Colors.blue,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffDirectoryScreen())),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  title: 'STAFF W/ PENDING TASKS',
+                  count: data['withPending'] ?? 0,
+                  icon: Icons.pending_outlined,
+                  color: Colors.orange,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffListScreen())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _KpiCard(
+                  title: 'STAFF W/ INCOMPLETE TASKS',
+                  count: data['withIncomplete'] ?? 0,
+                  icon: Icons.report_problem_outlined,
+                  color: Colors.red,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IncompleteTasksScreen())),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      loading: () => const _SectionSkeleton(height: 190),
+      error: (e, _) => _SectionErrorTile(onRetry: () => ref.invalidate(adminStaffOverviewProvider)),
+    );
+  }
+}
+
+// ─── 9. IMPORTANT / ATTENTION SECTION WIDGET ────────────────────────────────
+class _ImportantAlertsSection extends ConsumerWidget {
+  const _ImportantAlertsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final taskData = ref.watch(adminTaskOverviewProvider).value;
+    final ageData = ref.watch(adminCustomerAgeProvider).value;
+    final instData = ref.watch(adminInstallationOverviewProvider).value;
+
+    final incompleteCount = taskData?['incomplete'] ?? 0;
+    final followUpCount = (ageData?['d8to14'] ?? 0) + (ageData?['d15to29'] ?? 0) + (ageData?['d30plus'] ?? 0);
+    final instPendingCount = instData?['installationPending'] ?? 0;
+    final rtsPendingCount = instData?['rtsPending'] ?? 0;
+    final subsidyPendingCount = instData?['subsidyPending'] ?? 0;
+
+    final alerts = <Widget>[];
+
+    if (incompleteCount > 0) {
+      alerts.add(_AlertTile(
+        title: 'Incomplete Tasks',
+        count: incompleteCount,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IncompleteTasksScreen())),
+      ));
+    }
+
+    if (followUpCount > 0) {
+      alerts.add(_AlertTile(
+        title: 'Customer Follow-up',
+        count: followUpCount,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterAgeRange: '8–14'))),
+      ));
+    }
+
+    if (instPendingCount > 0) {
+      alerts.add(_AlertTile(
+        title: 'Installation Pending',
+        count: instPendingCount,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['Installation']))),
+      ));
+    }
+
+    if (rtsPendingCount > 0) {
+      alerts.add(_AlertTile(
+        title: 'RTS Pending',
+        count: rtsPendingCount,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['RTS']))),
+      ));
+    }
+
+    if (subsidyPendingCount > 0) {
+      alerts.add(_AlertTile(
+        title: 'Subsidy Pending',
+        count: subsidyPendingCount,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['Subsidy']))),
+      ));
+    }
+
+    if (alerts.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle_outline, color: Colors.green),
+            SizedBox(width: 12),
+            Text('All business items up to date!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    }
+
+    return Column(children: alerts);
+  }
+}
+
+class _AlertTile extends StatelessWidget {
+  final String title;
+  final int count;
+  final VoidCallback onTap;
+
+  const _AlertTile({
+    required this.title,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.amber.shade300),
+      ),
+      color: Colors.amber.shade50,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade800,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 10. QUICK ACTIONS WIDGET ──────────────────────────────────────────────
+class _QuickActionsSection extends StatelessWidget {
+  const _QuickActionsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionButton(
+                label: '+ CUSTOMER',
+                icon: Icons.person_add_outlined,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCustomerScreen())),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _QuickActionButton(
+                label: '+ LEAD',
+                icon: Icons.leaderboard_outlined,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddLeadScreen())),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionButton(
+                label: '+ TASK',
+                icon: Icons.add_task_outlined,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTaskScreen())),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _QuickActionButton(
+                label: '+ STAFF',
+                icon: Icons.person_add_alt_1_outlined,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddStaffScreen())),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionButton(
+                label: 'DISPATCH',
+                icon: Icons.local_shipping_outlined,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen(filterStages: ['Installation']))),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _QuickActionButton(
+                label: 'IMPORT',
+                icon: Icons.file_upload_outlined,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportScreen())),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ─── COMMON DASHBOARD UI COMPONENTS ───────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.6,
+        color: Colors.black87,
       ),
     );
   }
@@ -222,37 +877,53 @@ class _KpiCard extends StatelessWidget {
   final int count;
   final IconData icon;
   final Color color;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
-  const _KpiCard({required this.title, required this.count, required this.icon, required this.color, this.onTap});
+  const _KpiCard({
+    required this.title,
+    required this.count,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
       ),
+      color: Colors.white,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(icon, color: color, size: 28),
-                  if (onTap != null) Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey.shade400),
+                  Icon(icon, color: color, size: 24),
+                  Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey.shade400),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(count.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text(title, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              const SizedBox(height: 10),
+              Text(
+                count.toString(),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.1),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ),
@@ -261,7 +932,95 @@ class _KpiCard extends StatelessWidget {
   }
 }
 
-// ─── Global Notification Bell ─────────────────────────────────────────────
+class _QuickActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionSkeleton extends StatelessWidget {
+  final double height;
+  const _SectionSkeleton({required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionErrorTile extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _SectionErrorTile({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Unable to load section', style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w500)),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: const Text('RETRY', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NotificationBell extends ConsumerWidget {
   const _NotificationBell();
 
