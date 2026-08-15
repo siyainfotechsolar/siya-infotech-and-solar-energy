@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_version_config.dart';
+import '../../../core/services/app_update_service.dart';
+
 import '../../auth/providers/auth_provider.dart';
 import '../../leads/ui/lead_list_screen.dart';
 import '../../staff/ui/staff_list_screen.dart';
@@ -139,7 +141,7 @@ class MoreScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('App Version'),
-            subtitle: const Text('${AppVersionConfig.version} (Build ${AppVersionConfig.buildNumber})'),
+            subtitle: Text('${AppVersionConfig.version} (Build ${AppVersionConfig.buildNumber})'),
           ),
           ListTile(
             leading: const Icon(Icons.system_update),
@@ -164,78 +166,71 @@ class MoreScreen extends ConsumerWidget {
   Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
     try {
       final supabase = ref.read(supabaseClientProvider);
-      final updateConfig = await supabase.from('app_updates').select().eq('id', 1).maybeSingle();
+      final updateResult = await AppUpdateService.checkUpdate(supabase);
       
       if (!context.mounted) return;
       
-      if (updateConfig == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not fetch update details.')),
-        );
-        return;
-      }
-      
-      final latest = updateConfig['latest_version'] as String;
-      const current = AppVersionConfig.version;
-      
-      final isNewer = _isVersionLessThan(current, latest);
-      if (isNewer) {
-        final updateUrl = updateConfig['update_url'] as String;
-        final notes = updateConfig['release_notes'] ?? 'Bug fixes and performance improvements.';
-        
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Text('NEW VERSION AVAILABLE', style: TextStyle(fontWeight: FontWeight.bold)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Version $latest is now available.', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  const Text('What\'s new:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                  const SizedBox(height: 4),
-                  Text(notes),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Later'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final url = Uri.parse(updateUrl);
-                    if (await canLaunchUrl(url)) {
-                      await launchUrl(url, mode: LaunchMode.externalApplication);
-                    }
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                  child: const Text('UPDATE NOW'),
-                ),
-              ],
-            );
-          },
-        );
-      } else {
+      if (updateResult.status == UpdateStatus.noUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You are using the latest version.')),
         );
+        return;
       }
+
+      final release = updateResult.release;
+      if (release == null) return;
+      
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(updateResult.status == UpdateStatus.mandatoryUpdate ? 'UPDATE REQUIRED' : 'NEW UPDATE AVAILABLE', style: const TextStyle(fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Latest Version:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                Text(release.latestVersion, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                if (release.releaseNotes.isNotEmpty) ...[
+                  const Text('Release Notes:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  Text(release.releaseNotes),
+                ],
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () async {
+                  final url = Uri.parse(release.apkDownloadUrl);
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white),
+                child: const Text('UPDATE NOW'),
+              ),
+              if (updateResult.status != UpdateStatus.mandatoryUpdate)
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('LATER'),
+                ),
+            ],
+          );
+        },
+      );
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not check for updates. Please verify your internet connection.')),
+          const SnackBar(content: Text('Failed to check for updates.')),
         );
       }
     }
   }
-
   bool _isVersionLessThan(String current, String target) {
     try {
       final currentParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();

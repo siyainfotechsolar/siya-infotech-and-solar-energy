@@ -7,7 +7,7 @@ import '../../features/auth/ui/login_screen.dart';
 import '../../features/auth/ui/splash_screen.dart';
 import '../../features/home/ui/admin_dashboard_screen.dart';
 import '../../features/home/ui/staff_dashboard_screen.dart';
-import '../config/app_version_config.dart';
+import '../services/app_update_service.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_state.dart';
 import '../notifications/notification_repository.dart';
@@ -27,7 +27,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   bool _isCheckingVersion = true;
   bool _needsForceUpdate = false;
   bool _showNormalUpdatePrompt = false;
-  Map<String, dynamic>? _updateConfig;
+  AppReleaseInfo? _activeRelease;
 
   @override
   void initState() {
@@ -42,21 +42,6 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         _showNormalUpdateDialog();
       });
     }
-  }
-
-  bool _isVersionLessThan(String current, String target) {
-    try {
-      final currentParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final targetParts = target.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      
-      for (var i = 0; i < 3; i++) {
-        final currentPart = currentParts.length > i ? currentParts[i] : 0;
-        final targetPart = targetParts.length > i ? targetParts[i] : 0;
-        if (currentPart < targetPart) return true;
-        if (currentPart > targetPart) return false;
-      }
-    } catch (_) {}
-    return false;
   }
 
   Future<void> _checkInternet() async {
@@ -79,20 +64,14 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
     try {
       final supabase = ref.read(supabaseClientProvider);
-      final updateConfig = await supabase.from('app_updates').select().eq('id', 1).maybeSingle();
-      if (updateConfig != null) {
-        final latest = updateConfig['latest_version'] as String;
-        final minSupported = updateConfig['minimum_supported_version'] as String;
-        const current = AppVersionConfig.version;
-
-        if (_isVersionLessThan(current, minSupported)) {
-          _needsForceUpdate = true;
-          _updateConfig = updateConfig;
-        } else if (_isVersionLessThan(current, latest)) {
-          if (!AuthWrapper.hasPromptedNormalUpdateThisSession) {
-            _showNormalUpdatePrompt = true;
-            _updateConfig = updateConfig;
-          }
+      final updateResult = await AppUpdateService.checkUpdate(supabase);
+      if (updateResult.status == UpdateStatus.mandatoryUpdate) {
+        _needsForceUpdate = true;
+        _activeRelease = updateResult.release;
+      } else if (updateResult.status == UpdateStatus.optionalUpdate) {
+        if (!AuthWrapper.hasPromptedNormalUpdateThisSession) {
+          _showNormalUpdatePrompt = true;
+          _activeRelease = updateResult.release;
         }
       }
     } catch (_) {
@@ -109,9 +88,8 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   }
 
   void _showNormalUpdateDialog() {
-    final latestVersion = _updateConfig?['latest_version'] ?? 'N/A';
-    final notes = _updateConfig?['release_notes'] ?? 'Performance improvements and bug fixes.';
-    final updateUrl = _updateConfig?['update_url'] ?? '';
+    final release = _activeRelease;
+    if (release == null) return;
 
     AuthWrapper.hasPromptedNormalUpdateThisSession = true;
     setState(() {
@@ -124,28 +102,25 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('NEW VERSION AVAILABLE', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('NEW UPDATE AVAILABLE', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Version $latestVersion is now available.', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Latest Version:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+              Text(release.latestVersion, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
-              const Text('What\'s new:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 4),
-              Text(notes),
+              if (release.releaseNotes.isNotEmpty) ...[
+                const Text('Release Notes:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                const SizedBox(height: 4),
+                Text(release.releaseNotes),
+              ],
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Later'),
-            ),
             ElevatedButton(
               onPressed: () async {
-                final url = Uri.parse(updateUrl);
+                final url = Uri.parse(release.apkDownloadUrl);
                 if (await canLaunchUrl(url)) {
                   await launchUrl(url, mode: LaunchMode.externalApplication);
                 }
@@ -153,8 +128,14 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                   Navigator.pop(context);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white),
               child: const Text('UPDATE NOW'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('LATER'),
             ),
           ],
         );
@@ -168,9 +149,8 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_needsForceUpdate) {
-      final requiredVersion = _updateConfig?['minimum_supported_version'] ?? 'N/A';
-      final updateUrl = _updateConfig?['update_url'] ?? '';
+    if (_needsForceUpdate && _activeRelease != null) {
+      final release = _activeRelease!;
       
       return Scaffold(
         body: Center(
@@ -190,37 +170,30 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                       'UPDATE REQUIRED',
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Your app version is no longer supported. Please update the application to continue.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 15),
-                    ),
                     const SizedBox(height: 16),
-                    Text(
-                      'Current Version: ${AppVersionConfig.version}',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    Text(
-                      'Required: $requiredVersion',
-                      style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.green),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
+                    const Text('Latest Version:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                    Text(release.latestVersion, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    const SizedBox(height: 12),
+                    if (release.releaseNotes.isNotEmpty) ...[
+                      const Text('Release Notes:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      Text(release.releaseNotes, textAlign: TextAlign.center),
+                      const SizedBox(height: 16),
+                    ],
+                    ElevatedButton(
                       onPressed: () async {
-                        final url = Uri.parse(updateUrl);
+                        final url = Uri.parse(release.apkDownloadUrl);
                         if (await canLaunchUrl(url)) {
                           await launchUrl(url, mode: LaunchMode.externalApplication);
                         }
                       },
-                      icon: const Icon(Icons.download),
-                      label: const Text('UPDATE NOW'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
+                      child: const Text('UPDATE NOW'),
                     ),
                   ],
                 ),

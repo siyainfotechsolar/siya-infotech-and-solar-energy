@@ -5,7 +5,9 @@ import '../../tasks/ui/task_list_screen.dart';
 import '../../tasks/ui/incomplete_tasks_screen.dart';
 import '../../more/ui/more_screen.dart';
 import 'admin_home_screen.dart';
+import 'exit_screen.dart';
 import '../../tasks/providers/task_provider.dart';
+import '../../tasks/providers/pending_task_count_provider.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -25,39 +27,60 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     MoreScreen(),
   ];
 
+  Future<void> _handlePopScope(bool didPop) async {
+    if (didPop) return;
+
+    if (_currentIndex != 0) {
+      setState(() {
+        _currentIndex = 0;
+      });
+      return;
+    }
+
+    final count = await ref.read(pendingTaskCountProvider.future);
+    if (mounted) {
+      await ExitScreen.show(context, count);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final incompleteAsync = ref.watch(incompleteTaskListProvider);
     final incompleteCount = incompleteAsync.value?.length ?? 0;
 
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-          const BottomNavigationBarItem(icon: Icon(Icons.people_outline), activeIcon: Icon(Icons.people), label: 'Customers'),
-          const BottomNavigationBarItem(icon: Icon(Icons.task_alt), label: 'Tasks'),
-          BottomNavigationBarItem(
-            icon: Badge(
-              label: Text('$incompleteCount'),
-              isLabelVisible: incompleteCount > 0,
-              child: const Icon(Icons.warning_amber_outlined),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) => _handlePopScope(didPop),
+      child: Scaffold(
+        body: IndexedStack(index: _currentIndex, children: _pages),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor: Colors.grey,
+          items: [
+            const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+            const BottomNavigationBarItem(icon: Icon(Icons.people_outline), activeIcon: Icon(Icons.people), label: 'Customers'),
+            const BottomNavigationBarItem(icon: Icon(Icons.task_alt), label: 'Tasks'),
+            BottomNavigationBarItem(
+              icon: Badge(
+                label: Text('$incompleteCount'),
+                isLabelVisible: incompleteCount > 0,
+                child: const Icon(Icons.warning_amber_outlined),
+              ),
+              activeIcon: Badge(
+                label: Text('$incompleteCount'),
+                isLabelVisible: incompleteCount > 0,
+                child: const Icon(Icons.warning_amber),
+              ),
+              label: 'Incomplete',
             ),
-            activeIcon: Badge(
-              label: Text('$incompleteCount'),
-              isLabelVisible: incompleteCount > 0,
-              child: const Icon(Icons.warning_amber),
-            ),
-            label: 'Incomplete',
-          ),
-          const BottomNavigationBarItem(icon: Icon(Icons.menu), label: 'More'),
-        ],
+            const BottomNavigationBarItem(icon: Icon(Icons.menu), label: 'More'),
+          ],
+        ),
       ),
     );
   }
 }
+

@@ -152,20 +152,25 @@ ALTER TABLE public.task_activity ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all select for task_activity" ON public.task_activity FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow insert for task_activity" ON public.task_activity FOR INSERT TO authenticated WITH CHECK (true);
 
--- 9. App Updates & Staff Version Tracking
-CREATE TABLE public.app_updates (
-    id INTEGER PRIMARY KEY DEFAULT 1,
+-- 9. App Releases & Staff Version Tracking
+CREATE TABLE IF NOT EXISTS public.app_releases (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    app_name TEXT NOT NULL DEFAULT 'Siya Solar Staff',
+    platform TEXT NOT NULL DEFAULT 'android',
     latest_version TEXT NOT NULL,
-    minimum_supported_version TEXT NOT NULL,
-    update_url TEXT NOT NULL,
+    latest_version_code INTEGER NOT NULL,
+    minimum_supported_version_code INTEGER NOT NULL,
+    apk_download_url TEXT NOT NULL,
     release_notes TEXT,
-    force_update BOOLEAN DEFAULT false,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    CONSTRAINT single_row CHECK (id = 1)
+    update_type TEXT NOT NULL CHECK (update_type IN ('OPTIONAL', 'MANDATORY')) DEFAULT 'OPTIONAL',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-ALTER TABLE public.app_updates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow select for all on app_updates" ON public.app_updates FOR SELECT TO public USING (true);
+ALTER TABLE public.app_releases ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow select for all on app_releases" ON public.app_releases FOR SELECT TO public USING (true);
+
 
 -- Staff tracking columns (added via migration)
 -- ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS app_version TEXT;
