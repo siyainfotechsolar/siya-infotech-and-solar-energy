@@ -5,6 +5,7 @@ import 'core/constants/supabase_constants.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/realtime_service.dart';
+import 'core/widgets/global_loading_overlay.dart';
 // notification_service is imported at auth_wrapper level; just keep the import clean here
 // ignore: unused_import
 import 'core/notifications/notification_service.dart';
@@ -36,7 +37,7 @@ class SolarCrmApp extends ConsumerWidget {
     ref.watch(realtimeServiceProvider);
 
     return MaterialApp.router(
-      title: 'Siya Infotech Staff',
+      title: 'Siya Solar Staff',
       theme: AppTheme.lightTheme,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
@@ -44,6 +45,7 @@ class SolarCrmApp extends ConsumerWidget {
         return Stack(
           children: [
             if (child != null) child,
+            const GlobalLoadingOverlay(),
             const ConnectionBanner(),
           ],
         );

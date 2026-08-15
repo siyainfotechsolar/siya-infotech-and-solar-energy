@@ -7,6 +7,8 @@ import '../../auth/providers/auth_provider.dart';
 import 'widgets/customer_search_field.dart';
 import 'widgets/task_name_search_field.dart';
 import '../../../core/utils/activity_logger.dart';
+import '../../../core/services/global_loading_service.dart';
+import '../../../core/localization/app_strings.dart';
 
 class AddTaskScreen extends ConsumerStatefulWidget {
   final String? initialCustomerId;
@@ -118,6 +120,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
   }
 
   Future<void> _saveTask() async {
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCustomerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a customer')));
@@ -131,83 +134,86 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final supabase = ref.read(supabaseClientProvider);
-      final user = ref.read(currentUserProvider);
+      await ref.read(globalLoadingProvider.notifier).runWithLoading(
+        () async {
+          final supabase = ref.read(supabaseClientProvider);
+          final user = ref.read(currentUserProvider);
 
-      // Create new task type if it doesn't exist (assuming the admin role creates it, or anyone can create it)
-      if (_taskName != null) {
-        try {
-          await supabase.from('task_types').insert({'name': _taskName!.trim()});
-        } catch (e) {
-          // Ignored if it already exists due to unique constraint
-        }
-      }
+          if (_taskName != null) {
+            try {
+              await supabase.from('task_types').insert({'name': _taskName!.trim()});
+            } catch (_) {}
+          }
 
-      final taskResp = await supabase.from('tasks').insert({
-        'name': _taskName!.trim(),
-        'customer_id': _selectedCustomerId,
-        'description': _descController.text.trim(),
-        'priority': _priority,
-        'created_by': user?.id,
-      }).select('id').single();
+          final taskResp = await supabase.from('tasks').insert({
+            'name': _taskName!.trim(),
+            'customer_id': _selectedCustomerId,
+            'description': _descController.text.trim(),
+            'priority': _priority,
+            'created_by': user?.id,
+          }).select('id').single();
 
-      final taskId = taskResp['id'];
+          final taskId = taskResp['id'];
 
-      // Create multi-staff mapping
-      final staffMappings = _selectedStaffIds.map((staffId) => {
-        'task_id': taskId,
-        'staff_id': staffId,
-      }).toList();
+          // Create multi-staff mapping
+          final staffMappings = _selectedStaffIds.map((staffId) => {
+            'task_id': taskId,
+            'staff_id': staffId,
+          }).toList();
 
-      await supabase.from('task_staff').insert(staffMappings);
+          await supabase.from('task_staff').insert(staffMappings);
 
-      // Upload attachments
-      for (final att in _attachments) {
-        final bytes = att['bytes'] as Uint8List;
-        final name = att['name'] as String;
-        final size = att['size'] as int;
-        final type = att['type'] as String;
-        
-        final safeName = name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-        final filePath = '$taskId/attachment_${DateTime.now().millisecondsSinceEpoch}_$safeName';
+          // Upload attachments
+          for (final att in _attachments) {
+            final bytes = att['bytes'] as Uint8List;
+            final name = att['name'] as String;
+            final size = att['size'] as int;
+            final type = att['type'] as String;
+            
+            final safeName = name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+            final filePath = '$taskId/attachment_${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
-        await supabase.storage.from('task_attachments').uploadBinary(
-          filePath,
-          bytes,
-          fileOptions: const FileOptions(
-            cacheControl: '3600',
-            upsert: true,
-          ),
-        );
+            await supabase.storage.from('task_attachments').uploadBinary(
+              filePath,
+              bytes,
+              fileOptions: const FileOptions(
+                cacheControl: '3600',
+                upsert: true,
+              ),
+            );
 
-        await supabase.from('task_attachments').insert({
-          'task_id': taskId,
-          'file_name': name,
-          'file_path': filePath,
-          'file_type': type,
-          'file_size': size,
-          'uploaded_by': user?.id,
-        });
-      }
+            await supabase.from('task_attachments').insert({
+              'task_id': taskId,
+              'file_name': name,
+              'file_path': filePath,
+              'file_type': type,
+              'file_size': size,
+              'uploaded_by': user?.id,
+            });
+          }
 
-      if (user != null) {
-        try {
-          final staffNameRes = await supabase.from('staff').select('name').eq('id', user.id).maybeSingle();
-          final staffName = staffNameRes?['name'] ?? 'Staff member';
-          await ActivityLogger.log(
-            supabase: supabase,
-            customerId: _selectedCustomerId,
-            action: 'task_created',
-            description: '$staffName added task ${_taskName!.trim()}',
-            performedBy: user.id,
-          );
-        } catch (_) {}
-      }
+          if (user != null) {
+            try {
+              final staffNameRes = await supabase.from('staff').select('name').eq('id', user.id).maybeSingle();
+              final staffName = staffNameRes?['name'] ?? 'Staff member';
+              await ActivityLogger.log(
+                supabase: supabase,
+                customerId: _selectedCustomerId,
+                action: 'task_created',
+                description: '$staffName added task ${_taskName!.trim()}',
+                performedBy: user.id,
+              );
+            } catch (_) {}
+          }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task assigned successfully!')));
-        Navigator.pop(context);
-      }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task assigned successfully!')));
+            Navigator.pop(context);
+          }
+        },
+        type: LoadingType.saveLoading,
+        message: AppStrings.saveLoading,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving task: $e')));

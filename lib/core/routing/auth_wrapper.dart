@@ -241,21 +241,21 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
         return roleAsync.when(
           data: (role) {
-            // Initialize notification service when user is authenticated and role is known
+            // Safe background initialization for notifications without blocking app UI
             WidgetsBinding.instance.addPostFrameCallback((_) async {
               if (!mounted) return;
-              final repo = ref.read(notificationRepositoryProvider);
-              final notifier = ref.read(notificationNotifierProvider.notifier);
-              // Set singleton for sendNotification helper
-              NotificationSender.setInstance(repo);
-              // Initialize service (Firebase + local notifications)
-              await notificationService.initialize(repo: repo, notifier: notifier);
-              // Request permission and register device token
-              await notificationService.requestPermission();
-              await notificationService.registerDeviceToken(userId);
-              // Load notifications and subscribe to realtime
-              final supabase = ref.read(supabaseClientProvider);
-              await notifier.initialize(supabase, userId);
+              try {
+                final repo = ref.read(notificationRepositoryProvider);
+                final notifier = ref.read(notificationNotifierProvider.notifier);
+                NotificationSender.setInstance(repo);
+                await notificationService.initialize(repo: repo, notifier: notifier).timeout(const Duration(seconds: 8));
+                await notificationService.requestPermission().timeout(const Duration(seconds: 5));
+                await notificationService.registerDeviceToken(userId).timeout(const Duration(seconds: 5));
+                final supabase = ref.read(supabaseClientProvider);
+                await notifier.initialize(supabase, userId).timeout(const Duration(seconds: 8));
+              } catch (e) {
+                debugPrint('AuthWrapper: Notification initialization skipped/failed safely: $e');
+              }
             });
 
             if (role == 'admin') return const AdminDashboardScreen();

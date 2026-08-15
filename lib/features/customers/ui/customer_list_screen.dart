@@ -10,6 +10,7 @@ import '../providers/customer_provider.dart';
 import 'add_customer_screen.dart';
 import 'customer_details_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/global_loading_overlay.dart';
 
 class CustomerListScreen extends ConsumerStatefulWidget {
   final bool filterPriority;
@@ -582,8 +583,11 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+              loading: () => const GlobalDataLoadingWidget(message: 'Loading customer list...'),
+              error: (e, _) => GlobalErrorWidget(
+                message: 'Unable to load customer list.',
+                onRetry: () => ref.invalidate(customerListProvider),
+              ),
             ),
           ),
         ],

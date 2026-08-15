@@ -6,6 +6,8 @@ import '../../../core/utils/date_utils.dart';
 import 'customer_details_screen.dart';
 import '../providers/customer_provider.dart';
 import '../../../core/utils/activity_logger.dart';
+import '../../../core/services/global_loading_service.dart';
+import '../../../core/localization/app_strings.dart';
 
 class AddCustomerScreen extends ConsumerStatefulWidget {
   const AddCustomerScreen({super.key});
@@ -27,7 +29,6 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
   String? _selectedSystemSize;
   DateTime _applicationDate = DateTime.now();
   List<String> _villageOptions = [];
-
   bool _isLoading = false;
   bool _hasUnsavedChanges = false;
 
@@ -36,16 +37,25 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchVillages();
+    _fetchVillageSuggestions();
   }
 
-  Future<void> _fetchVillages() async {
+  Future<void> _fetchVillageSuggestions() async {
     try {
       final supabase = ref.read(supabaseClientProvider);
-      final res = await supabase.from('customers').select('village').not('village', 'is', null);
-      final villages = (res as List).map((e) => e['village'].toString().trim()).where((v) => v.isNotEmpty).toSet().toList();
-      villages.sort();
-      if (mounted) setState(() => _villageOptions = villages);
+      final res = await supabase.from('customers').select('village');
+      final list = (res as List)
+          .map((e) => e['village'] as String?)
+          .whereType<String>()
+          .where((v) => v.trim().isNotEmpty)
+          .toSet()
+          .toList();
+      list.sort();
+      if (mounted) {
+        setState(() {
+          _villageOptions = list;
+        });
+      }
     } catch (_) {}
   }
 

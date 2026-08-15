@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
+import '../../../core/services/global_loading_service.dart';
+import '../../../core/localization/app_strings.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -68,6 +70,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isLoading) return; // Prevent duplicate taps
+
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter email and password')),
@@ -80,13 +84,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final supabase = ref.read(supabaseClientProvider);
-      await supabase.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      await ref.read(globalLoadingProvider.notifier).runWithLoading(
+        () async {
+          final supabase = ref.read(supabaseClientProvider);
+          await supabase.auth.signInWithPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+          await _saveCredentials();
+        },
+        type: LoadingType.saveLoading,
+        message: AppStrings.pleaseWait,
       );
-      await _saveCredentials();
-      // Navigation is handled by GoRouter redirect
     } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -96,7 +105,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unexpected error occurred: $e')),
+          SnackBar(content: Text('Login failed: $e')),
         );
       }
     } finally {

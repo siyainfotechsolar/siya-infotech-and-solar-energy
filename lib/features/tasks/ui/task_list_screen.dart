@@ -4,6 +4,7 @@ import '../../auth/providers/auth_provider.dart';
 import 'add_task_screen.dart';
 import 'task_details_screen.dart';
 import '../providers/task_provider.dart';
+import '../../../core/widgets/global_loading_overlay.dart';
 
 class TaskListScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -277,8 +278,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(child: Text('Error: $e')),
+        loading: () => const GlobalDataLoadingWidget(message: 'Loading tasks...'),
+        error: (e, st) => GlobalErrorWidget(
+          message: 'Unable to load tasks.',
+          onRetry: () => ref.invalidate(taskListProvider),
+        ),
       ),
     );
   }

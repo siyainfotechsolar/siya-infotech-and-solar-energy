@@ -6,6 +6,8 @@ import 'package:csv/csv.dart';
 import 'package:excel/excel.dart' hide Border;
 import '../../auth/providers/auth_provider.dart';
 import '../../customers/providers/customer_provider.dart';
+import '../../../core/services/global_loading_service.dart';
+import '../../../core/localization/app_strings.dart';
 
 // Model for parsed rows in preview stage
 class PreviewRow {
@@ -418,7 +420,6 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     );
   }
 
-  // Execute database inserts
   Future<void> _processImport() async {
     final readyRows = _previewRows.where((r) => r.error == null && !r.isDuplicate).toList();
     if (readyRows.isEmpty) {
@@ -429,6 +430,12 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     }
 
     setState(() => _isLoading = true);
+    final loadingNotifier = ref.read(globalLoadingProvider.notifier);
+    loadingNotifier.show(
+      type: LoadingType.importLoading,
+      message: 'Importing 0 of ${readyRows.length}...',
+      progress: 0.0,
+    );
 
     try {
       final supabase = ref.read(supabaseClientProvider);
@@ -440,7 +447,14 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       int importedCount = 0;
       int errorCount = 0;
 
-      for (var row in readyRows) {
+      for (int i = 0; i < readyRows.length; i++) {
+        final row = readyRows[i];
+        final progressVal = (i + 1) / readyRows.length;
+        loadingNotifier.updateProgress(
+          progressVal,
+          message: 'Importing ${i + 1} of ${readyRows.length}...',
+        );
+
         final generatedId = 'C${(currentCount + 1).toString().padLeft(6, '0')}';
         final stage = row.data['stage'] ?? 'PM Surya Ghar Application';
         final appDate = _parseDate(row.data['application_date'] ?? '');
@@ -521,6 +535,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e')));
     } finally {
+      ref.read(globalLoadingProvider.notifier).hide();
       setState(() => _isLoading = false);
     }
   }

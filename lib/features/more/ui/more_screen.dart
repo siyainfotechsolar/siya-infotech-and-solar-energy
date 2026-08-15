@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_version_config.dart';
 import '../../../core/services/app_update_service.dart';
+import '../../../core/services/global_loading_service.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../leads/ui/lead_list_screen.dart';
@@ -165,10 +166,16 @@ class MoreScreen extends ConsumerWidget {
 
   Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
     try {
-      final supabase = ref.read(supabaseClientProvider);
-      final updateResult = await AppUpdateService.checkUpdate(supabase);
+      final updateResult = await ref.read(globalLoadingProvider.notifier).runWithLoading(
+        () async {
+          final supabase = ref.read(supabaseClientProvider);
+          return await AppUpdateService.checkUpdate(supabase);
+        },
+        type: LoadingType.updateLoading,
+        message: 'Checking for updates...',
+      );
       
-      if (!context.mounted) return;
+      if (!context.mounted || updateResult == null) return;
       
       if (updateResult.status == UpdateStatus.noUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
