@@ -1,18 +1,18 @@
 {
   "appName": "Siya Solar Staff",
   "subtitle": "Official Android Application for Staff & Field Operations",
-  "version": "1.0.7",
-  "versionCode": 8,
+  "version": "1.0.8",
+  "versionCode": 9,
   "releaseDate": "2026-08-16",
   "minAndroidVersion": "Android 6.0 (API level 23)+",
-  "apkSize": "59.4 MB",
-  "apkFile": "releases/Siya-Solar-Staff-v1.0.7.apk",
+  "apkSize": "59.5 MB",
+  "apkFile": "releases/Siya-Solar-Staff-v1.0.8.apk",
   "latestApk": "releases/latest/Siya-Solar-Staff-latest.apk",
   "changelog": [
-    "v1.0.7: Official release with Push & In-App Notification Pipeline, FCM HTTP v1 Migration & RLS Security Fixes",
-    "Migrated FCM backend push delivery from deprecated legacy API to Google FCM HTTP v1 API",
-    "Fixed user_devices FCM token upsert table constraints for persistent device registration",
-    "Fixed notification_type casing mismatch (UPPER_CASE) for correct deep-link navigation",
-    "Added web platform guards (kIsWeb) for Firebase and Platform.isAndroid"
+    "v1.0.8: Staff Credentials, Password Reset, Delivery Staff Role Routing & Material Dispatch RLS Fixes",
+    "Added Staff Login Credentials card with copy username & Admin password reset dialog",
+    "Fixed Delivery Staff (pradip@siyasolar.com) role routing in AuthWrapper to load Delivery Staff Dashboard",
+    "Fixed Material Dispatch notification RLS policy error by routing via FCM Edge Function",
+    "Enhanced FCM push payload for max priority system tray notifications when app is closed"
   ]
 }
