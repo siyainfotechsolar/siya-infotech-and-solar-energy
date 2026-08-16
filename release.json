@@ -1,19 +1,19 @@
 {
   "appName": "Siya Solar Staff",
   "subtitle": "Official Android Application for Staff & Field Operations",
-  "version": "1.0.3",
-  "versionCode": 4,
-  "releaseDate": "2026-08-15",
-  "minAndroidVersion": "Android 7.0 (API level 24)+",
-  "apkSize": "58.6 MB",
-  "apkFile": "releases/Siya-Solar-Staff-v1.0.3.apk",
+  "version": "1.0.6",
+  "versionCode": 7,
+  "releaseDate": "2026-08-16",
+  "minAndroidVersion": "Android 6.0 (API level 23)+",
+  "apkSize": "59.5 MB",
+  "apkFile": "releases/Siya-Solar-Staff-v1.0.6.apk",
   "latestApk": "releases/latest/Siya-Solar-Staff-latest.apk",
   "changelog": [
-    "v1.0.3: Official release with Global App Loading System and official Siya Infotech branding",
-    "Implemented GlobalLoadingService for full-screen and page-level loading state management",
-    "Added timeout protection and error retry handling across all network operations",
-    "Added official Siya Infotech logo across launch icons, splash screen, and web pages",
-    "Added Android Exit Screen with assigned pending task calculation",
-    "Automated Supabase app_releases version management"
+    "v1.0.6: Official release with Audit Performance Fixes, Named Routing, and Dedicated Installer Dashboard",
+    "Parallelized 23 dashboard queries with Future.wait() for fast 1-2s loading times",
+    "Added Field Installer Dashboard with task statistics, unread badges, and task navigation",
+    "Added GoRouter named routes (/tasks, /customers, /notifications) for push notification deep-linking",
+    "Raised task list query limit from 100 to 500 to prevent data truncation",
+    "Fixed JVM heap & Gradle cache allocation settings for optimal build stability"
   ]
 }

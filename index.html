@@ -19,12 +19,12 @@
   <header class="hero">
     <div class="container hero-container">
       <div class="app-icon">
-        <img src="logo.png?v=1.0.3" alt="Siya Solar Staff Logo" style="width: 100px; height: 100px; border-radius: 22px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); object-fit: contain; background: #ffffff; padding: 6px;">
+        <img src="logo.png?v=1.0.6" alt="Siya Solar Staff Logo" style="width: 100px; height: 100px; border-radius: 22px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); object-fit: contain; background: #ffffff; padding: 6px;">
       </div>
       <h1 id="appName">Siya Solar Staff</h1>
       <p class="subtitle" id="appSubtitle">Official Android Application for Staff & Field Operations</p>
       <div class="version-tag">
-        <span class="badge" id="versionBadge">Version 1.0.3</span>
+        <span class="badge" id="versionBadge">Version 1.0.6</span>
         <span class="badge badge-green" id="statusBadge">Production Release</span>
       </div>
     </div>
@@ -34,7 +34,7 @@
   <main class="container">
     <section class="card download-card">
       <div class="download-actions">
-        <a id="primaryDownloadBtn" href="releases/Siya-Solar-Staff-v1.0.3.apk" class="btn btn-primary" download>
+        <a id="primaryDownloadBtn" href="releases/Siya-Solar-Staff-v1.0.6.apk" class="btn btn-primary" download>
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           <span>DOWNLOAD APK</span>
         </a>
@@ -48,19 +48,19 @@
       <div class="meta-grid">
         <div class="meta-item">
           <span class="meta-label">Version</span>
-          <span class="meta-value" id="versionVal">1.0.3 (Build 4)</span>
+          <span class="meta-value" id="versionVal">1.0.6 (Build 7)</span>
         </div>
         <div class="meta-item">
           <span class="meta-label">Release Date</span>
-          <span class="meta-value" id="dateVal">August 15, 2026</span>
+          <span class="meta-value" id="dateVal">August 16, 2026</span>
         </div>
         <div class="meta-item">
           <span class="meta-label">File Size</span>
-          <span class="meta-value" id="sizeVal">58.6 MB</span>
+          <span class="meta-value" id="sizeVal">59.5 MB</span>
         </div>
         <div class="meta-item">
           <span class="meta-label">Android Version</span>
-          <span class="meta-value" id="minAndroidVal">Android 7.0+</span>
+          <span class="meta-value" id="minAndroidVal">Android 6.0 (API level 23)+</span>
         </div>
       </div>
     </section>
@@ -80,7 +80,7 @@
           <span class="step-num">2</span>
           <div>
             <strong>Open Downloaded File</strong>
-            <p>Open your browser downloads or Files app and tap <code>Siya-Solar-Staff-v1.0.3.apk</code>.</p>
+            <p>Open your browser downloads or Files app and tap <code>Siya-Solar-Staff-v1.0.6.apk</code>.</p>
           </div>
         </li>
         <li>
@@ -104,12 +104,12 @@
     <section class="card">
       <h2>📋 Release Notes</h2>
       <ul class="changelog-list" id="changelogList">
-        <li>v1.0.3: Official release with Global App Loading System and official Siya Infotech branding</li>
-        <li>Implemented GlobalLoadingService for full-screen and page-level loading state management</li>
-        <li>Added timeout protection and error retry handling across all network operations</li>
-        <li>Added official Siya Infotech logo across launch icons, splash screen, and web pages</li>
-        <li>Added Android Exit Screen with assigned pending task calculation</li>
-        <li>Automated Supabase app_releases version management</li>
+        <li>v1.0.6: Official release with Audit Performance Fixes, Named Routing, and Dedicated Installer Dashboard</li>
+        <li>Parallelized 23 dashboard queries with Future.wait() for fast 1-2s loading times</li>
+        <li>Added Field Installer Dashboard with task statistics, unread badges, and task navigation</li>
+        <li>Added GoRouter named routes (/tasks, /customers, /notifications) for push notification deep-linking</li>
+        <li>Raised task list query limit from 100 to 500 to prevent data truncation</li>
+        <li>Fixed JVM heap & Gradle cache allocation settings for optimal build stability</li>
       </ul>
     </section>
 
