@@ -160,16 +160,14 @@ class NotificationService {
     debugPrint(
         '[NotificationService] Foreground FCM: ${message.notification?.title}');
 
-    final notification = message.notification;
-    final android = message.notification?.android;
+    final title = message.notification?.title ?? message.data['title'] ?? 'New Notification';
+    final body = message.notification?.body ?? message.data['message'] ?? '';
 
-    if (notification != null && android != null) {
-      await _showLocalNotification(
-        title: notification.title ?? '',
-        body: notification.body ?? '',
-        payload: message.data['notification_type'],
-      );
-    }
+    await _showLocalNotification(
+      title: title,
+      body: body,
+      payload: message.data['notification_type'],
+    );
 
     _notifier?.refresh();
   }
