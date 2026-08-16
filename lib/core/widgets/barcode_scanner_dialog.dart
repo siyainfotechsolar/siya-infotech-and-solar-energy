@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class BarcodeScannerDialog extends StatefulWidget {
   final String title;
@@ -39,9 +39,16 @@ class BarcodeScannerDialog extends StatefulWidget {
 
 class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> {
   late TextEditingController _textController;
+  final MobileScannerController _scannerController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.normal,
+    facing: CameraFacing.back,
+    torchEnabled: false,
+  );
+  
   String? _scannedCode;
   String? _errorMessage;
   bool _isManualMode = false;
+  bool _isTorchOn = false;
 
   @override
   void initState() {
@@ -53,6 +60,7 @@ class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> {
   @override
   void dispose() {
     _textController.dispose();
+    _scannerController.dispose();
     super.dispose();
   }
 
@@ -76,23 +84,20 @@ class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> {
     return true;
   }
 
-  Future<void> _simulateCameraScan() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? photo = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
-      if (photo != null) {
-        // Generate pseudo serial from timestamp/filename if optical OCR isn't available
-        final mockSerial = 'SN${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
-        setState(() {
-          _scannedCode = mockSerial;
-          _textController.text = mockSerial;
-        });
-        _validateCode(mockSerial);
-      }
-    } catch (_) {
+  void _onDetect(BarcodeCapture capture) {
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+      final code = barcodes.first.rawValue!;
+      
+      // Prevent rapid re-scans of the same or invalid codes
+      if (_scannedCode == code) return;
+      
       setState(() {
-        _isManualMode = true;
+        _scannedCode = code;
+        _textController.text = code;
+        _isManualMode = true; // Switch to manual mode so they can review the scanned text
       });
+      _validateCode(code);
     }
   }
 
@@ -131,39 +136,83 @@ class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> {
               const SizedBox(height: 16),
             ],
 
-            TextField(
-              controller: _textController,
-              decoration: InputDecoration(
-                labelText: 'Serial Number',
-                hintText: 'Enter or scan barcode',
-                border: const OutlineInputBorder(),
-                errorText: _errorMessage,
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.camera_alt, color: Colors.purple),
-                  onPressed: _simulateCameraScan,
+            if (!_isManualMode) ...[
+              // Camera view
+              Container(
+                height: 250,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Stack(
+                  children: [
+                    MobileScanner(
+                      controller: _scannerController,
+                      onDetect: _onDetect,
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: IconButton(
+                        icon: Icon(_isTorchOn ? Icons.flash_on : Icons.flash_off, color: Colors.white),
+                        style: IconButton.styleFrom(backgroundColor: Colors.black54),
+                        onPressed: () {
+                          _scannerController.toggleTorch();
+                          setState(() {
+                            _isTorchOn = !_isTorchOn;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              onChanged: (val) {
-                _scannedCode = val;
-                _validateCode(val);
-              },
-            ),
+              const SizedBox(height: 12),
+              const Text('Point camera at the barcode/QR code to scan', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ] else ...[
+              // Text Field
+              TextField(
+                controller: _textController,
+                decoration: InputDecoration(
+                  labelText: 'Serial Number',
+                  hintText: 'Enter serial number',
+                  border: const OutlineInputBorder(),
+                  errorText: _errorMessage,
+                ),
+                onChanged: (val) {
+                  _scannedCode = val;
+                  _validateCode(val);
+                },
+              ),
+            ],
+            
             const SizedBox(height: 12),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.camera, size: 16),
-                  label: const Text('CAMERA SCAN'),
-                  onPressed: _simulateCameraScan,
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() => _isManualMode = !_isManualMode);
-                  },
-                  child: const Text('MANUAL ENTRY'),
-                ),
+                if (_isManualMode)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.camera, size: 16),
+                    label: const Text('SCAN'),
+                    onPressed: () {
+                      setState(() {
+                        _isManualMode = false;
+                        _scannedCode = null;
+                        _textController.clear();
+                      });
+                    },
+                  )
+                else
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isManualMode = true;
+                      });
+                    },
+                    child: const Text('MANUAL ENTRY'),
+                  ),
               ],
             ),
           ],
