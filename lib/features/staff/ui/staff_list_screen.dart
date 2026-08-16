@@ -646,9 +646,11 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     switch (role) {
       case 'admin': return 'Admin';
       case 'office_staff': return 'Office Staff';
-      case 'installer': return 'Installer';
+      case 'installer': return 'Structure Installer';
+      case 'wireman': return 'Wireman / Electrical Installer';
       case 'supervisor': return 'Supervisor';
-      default: return 'Staff';
+      case 'delivery_staff': return 'Delivery Staff';
+      default: return role ?? 'Staff';
     }
   }
 
@@ -1690,8 +1692,10 @@ class _EditStaffDialogState extends ConsumerState<_EditStaffDialog> {
               items: const [
                 DropdownMenuItem(value: 'admin', child: Text('Admin')),
                 DropdownMenuItem(value: 'office_staff', child: Text('Office Staff')),
-                DropdownMenuItem(value: 'installer', child: Text('Installer')),
+                DropdownMenuItem(value: 'installer', child: Text('Structure Installer')),
+                DropdownMenuItem(value: 'wireman', child: Text('Wireman / Electrical Installer')),
                 DropdownMenuItem(value: 'supervisor', child: Text('Supervisor')),
+                DropdownMenuItem(value: 'delivery_staff', child: Text('Delivery Staff')),
               ],
               onChanged: (val) => setState(() => _role = val!),
             ),
