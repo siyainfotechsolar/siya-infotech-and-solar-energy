@@ -112,6 +112,10 @@ async function sendFcmV1Push(
           notification: {
             channel_id: "general_notifications",
             sound: "default",
+            default_sound: true,
+            default_vibrate_timings: true,
+            notification_priority: "PRIORITY_MAX",
+            visibility: "PUBLIC",
           },
         },
       },
