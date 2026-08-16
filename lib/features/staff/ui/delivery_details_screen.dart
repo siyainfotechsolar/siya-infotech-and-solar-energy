@@ -238,7 +238,30 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(_uploadedPhotoUrl!, height: 200, fit: BoxFit.cover),
+                child: Image.network(
+                  _uploadedPhotoUrl!, 
+                  height: 200, 
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 180,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image, size: 48, color: Colors.green),
+                          SizedBox(height: 8),
+                          Text('Delivery Photo Uploaded', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
               const SizedBox(height: 24),
             ] else if (_pickedPhoto != null) ...[
