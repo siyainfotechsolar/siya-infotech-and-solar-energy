@@ -369,9 +369,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
 
   Widget _buildStatusChip(String status) {
     Color c;
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'completed': c = Colors.green; break;
       case 'in_progress': c = Colors.blue; break;
+      case 'not_completed': c = Colors.red; break;
       default: c = Colors.orange; break;
     }
     return Container(

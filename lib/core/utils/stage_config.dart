@@ -36,12 +36,10 @@ class StageConfig {
     if (current == 'Completed') return null;
     
     final idx = stages.indexOf(current);
-    if (idx == -1) return null;
+    if (idx == -1 || idx >= stages.length - 1) return null;
     
     final next = stages[idx + 1];
     if (next == 'Loan Processing') {
-      // If we are indexing through Lead but next index-wise is Loan Processing (which shouldn't happen by index,
-      // but just to be safe):
       return loanRequired ? 'Loan Processing' : 'Installation';
     }
     return next;

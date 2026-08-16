@@ -7,6 +7,7 @@ import '../../features/auth/ui/login_screen.dart';
 import '../../features/auth/ui/splash_screen.dart';
 import '../../features/home/ui/admin_dashboard_screen.dart';
 import '../../features/home/ui/staff_dashboard_screen.dart';
+import '../../features/home/ui/installer_dashboard_screen.dart';
 import '../services/app_update_service.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_state.dart';
@@ -259,8 +260,9 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
             if (role == 'admin') return const AdminDashboardScreen();
             if (role == 'office_staff') return const StaffDashboardScreen();
+            if (role == 'installer') return const InstallerDashboardScreen();
             
-            // If they are logged in but have no role (e.g. newly created user), wait.
+            // Unknown role — show pending activation
             return const Scaffold(body: Center(child: Text('Account pending activation...')));
           },
           loading: () => const SplashScreen(),

@@ -16,7 +16,7 @@ void main() async {
   // Initialize Supabase
   await Supabase.initialize(
     url: SupabaseConstants.supabaseUrl,
-    publishableKey: SupabaseConstants.supabaseAnonKey,
+    anonKey: SupabaseConstants.supabaseAnonKey,
   );
 
   runApp(

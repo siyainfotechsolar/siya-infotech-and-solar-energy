@@ -21,12 +21,15 @@ final adminCustomerOverviewProvider = FutureProvider.autoDispose<Map<String, int
   final now = DateTime.now();
   final d7 = now.subtract(const Duration(days: 7)).toIso8601String().split('T').first;
 
-  final totalRes = await supabase.from('customers').select('id');
-  final newRes = await supabase.from('customers').select('id').gte('application_date', d7);
+  // Run in parallel
+  final results = await Future.wait([
+    supabase.from('customers').select('id'),
+    supabase.from('customers').select('id').gte('application_date', d7),
+  ]);
 
   return {
-    'total': (totalRes as List).length,
-    'new': (newRes as List).length,
+    'total': (results[0] as List).length,
+    'new': (results[1] as List).length,
   };
 });
 
@@ -35,23 +38,26 @@ final adminCustomerAgeProvider = FutureProvider.autoDispose<Map<String, int>>((r
   final supabase = ref.watch(supabaseClientProvider);
   final now = DateTime.now();
 
-  final d7 = now.subtract(const Duration(days: 7)).toIso8601String().split('T').first;
-  final d8 = now.subtract(const Duration(days: 8)).toIso8601String().split('T').first;
+  final d7  = now.subtract(const Duration(days: 7)).toIso8601String().split('T').first;
+  final d8  = now.subtract(const Duration(days: 8)).toIso8601String().split('T').first;
   final d14 = now.subtract(const Duration(days: 14)).toIso8601String().split('T').first;
   final d15 = now.subtract(const Duration(days: 15)).toIso8601String().split('T').first;
   final d29 = now.subtract(const Duration(days: 29)).toIso8601String().split('T').first;
   final d30 = now.subtract(const Duration(days: 30)).toIso8601String().split('T').first;
 
-  final d0to7Res = await supabase.from('customers').select('id').gte('application_date', d7);
-  final d8to14Res = await supabase.from('customers').select('id').lte('application_date', d8).gte('application_date', d14);
-  final d15to29Res = await supabase.from('customers').select('id').lte('application_date', d15).gte('application_date', d29);
-  final d30plusRes = await supabase.from('customers').select('id').lte('application_date', d30);
+  // All 4 age-bucket queries run in parallel
+  final results = await Future.wait([
+    supabase.from('customers').select('id').gte('application_date', d7),
+    supabase.from('customers').select('id').lte('application_date', d8).gte('application_date', d14),
+    supabase.from('customers').select('id').lte('application_date', d15).gte('application_date', d29),
+    supabase.from('customers').select('id').lte('application_date', d30),
+  ]);
 
   return {
-    'd0to7': (d0to7Res as List).length,
-    'd8to14': (d8to14Res as List).length,
-    'd15to29': (d15to29Res as List).length,
-    'd30plus': (d30plusRes as List).length,
+    'd0to7':   (results[0] as List).length,
+    'd8to14':  (results[1] as List).length,
+    'd15to29': (results[2] as List).length,
+    'd30plus': (results[3] as List).length,
   };
 });
 
@@ -59,18 +65,21 @@ final adminCustomerAgeProvider = FutureProvider.autoDispose<Map<String, int>>((r
 final adminLeadOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
   final supabase = ref.watch(supabaseClientProvider);
 
-  final totalRes = await supabase.from('leads').select('id');
-  final newRes = await supabase.from('leads').select('id').inFilter('status', ['new', 'pending']);
-  final followUpRes = await supabase.from('leads').select('id').inFilter('status', ['follow_up', 'followup', 'contacted']);
-  final convertedRes = await supabase.from('leads').select('id').eq('status', 'converted');
-  final lostRes = await supabase.from('leads').select('id').eq('status', 'lost');
+  // 5 lead queries run in parallel
+  final results = await Future.wait([
+    supabase.from('leads').select('id'),
+    supabase.from('leads').select('id').inFilter('status', ['new', 'pending']),
+    supabase.from('leads').select('id').inFilter('status', ['follow_up', 'followup', 'contacted']),
+    supabase.from('leads').select('id').eq('status', 'converted'),
+    supabase.from('leads').select('id').eq('status', 'lost'),
+  ]);
 
   return {
-    'total': (totalRes as List).length,
-    'new': (newRes as List).length,
-    'followUp': (followUpRes as List).length,
-    'converted': (convertedRes as List).length,
-    'lost': (lostRes as List).length,
+    'total':    (results[0] as List).length,
+    'new':      (results[1] as List).length,
+    'followUp': (results[2] as List).length,
+    'converted':(results[3] as List).length,
+    'lost':     (results[4] as List).length,
   };
 });
 
@@ -78,16 +87,19 @@ final adminLeadOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((
 final adminTaskOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
   final supabase = ref.watch(supabaseClientProvider);
 
-  final pendingRes = await supabase.from('tasks').select('id').ilike('status', 'pending');
-  final inProgressRes = await supabase.from('tasks').select('id').ilike('status', 'in_progress');
-  final incompleteRes = await supabase.from('tasks').select('id').ilike('status', 'not_completed');
-  final completedRes = await supabase.from('tasks').select('id').ilike('status', 'completed');
+  // 4 task status counts run in parallel
+  final results = await Future.wait([
+    supabase.from('tasks').select('id').ilike('status', 'pending'),
+    supabase.from('tasks').select('id').ilike('status', 'in_progress'),
+    supabase.from('tasks').select('id').ilike('status', 'not_completed'),
+    supabase.from('tasks').select('id').ilike('status', 'completed'),
+  ]);
 
   return {
-    'pending': (pendingRes as List).length,
-    'inProgress': (inProgressRes as List).length,
-    'incomplete': (incompleteRes as List).length,
-    'completed': (completedRes as List).length,
+    'pending':    (results[0] as List).length,
+    'inProgress': (results[1] as List).length,
+    'incomplete': (results[2] as List).length,
+    'completed':  (results[3] as List).length,
   };
 });
 
@@ -95,16 +107,19 @@ final adminTaskOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((
 final adminInstallationOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
   final supabase = ref.watch(supabaseClientProvider);
 
-  final instPendingRes = await supabase.from('customers').select('id').eq('stage', 'Installation');
-  final rtsPendingRes = await supabase.from('customers').select('id').eq('stage', 'RTS');
-  final subsidyPendingRes = await supabase.from('customers').select('id').eq('stage', 'Subsidy');
-  final completedRes = await supabase.from('customers').select('id').eq('stage', 'Completed');
+  // 4 stage counts run in parallel
+  final results = await Future.wait([
+    supabase.from('customers').select('id').eq('stage', 'Installation'),
+    supabase.from('customers').select('id').eq('stage', 'RTS'),
+    supabase.from('customers').select('id').eq('stage', 'Subsidy'),
+    supabase.from('customers').select('id').eq('stage', 'Completed'),
+  ]);
 
   return {
-    'installationPending': (instPendingRes as List).length,
-    'rtsPending': (rtsPendingRes as List).length,
-    'subsidyPending': (subsidyPendingRes as List).length,
-    'completed': (completedRes as List).length,
+    'installationPending': (results[0] as List).length,
+    'rtsPending':          (results[1] as List).length,
+    'subsidyPending':      (results[2] as List).length,
+    'completed':           (results[3] as List).length,
   };
 });
 
@@ -112,19 +127,21 @@ final adminInstallationOverviewProvider = FutureProvider.autoDispose<Map<String,
 final adminStaffOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
   final supabase = ref.watch(supabaseClientProvider);
 
-  final totalRes = await supabase.from('staff').select('id');
-  final activeRes = await supabase.from('staff').select('id').eq('status', 'active');
-  
-  final pendingStaffRes = await supabase.from('task_staff').select('staff_id, tasks!inner(status)').inFilter('tasks.status', ['pending', 'in_progress']);
-  final incompleteStaffRes = await supabase.from('task_staff').select('staff_id, tasks!inner(status)').eq('tasks.status', 'not_completed');
+  // Staff counts + task-staff joins run in parallel
+  final results = await Future.wait([
+    supabase.from('staff').select('id'),
+    supabase.from('staff').select('id').eq('status', 'active'),
+    supabase.from('task_staff').select('staff_id, tasks!inner(status)').inFilter('tasks.status', ['pending', 'in_progress']),
+    supabase.from('task_staff').select('staff_id, tasks!inner(status)').eq('tasks.status', 'not_completed'),
+  ]);
 
-  final pendingStaffSet = (pendingStaffRes as List).map((e) => e['staff_id']).toSet();
-  final incompleteStaffSet = (incompleteStaffRes as List).map((e) => e['staff_id']).toSet();
+  final pendingStaffSet = (results[2] as List).map((e) => e['staff_id']).toSet();
+  final incompleteStaffSet = (results[3] as List).map((e) => e['staff_id']).toSet();
 
   return {
-    'total': (totalRes as List).length,
-    'active': (activeRes as List).length,
-    'withPending': pendingStaffSet.length,
+    'total':          (results[0] as List).length,
+    'active':         (results[1] as List).length,
+    'withPending':    pendingStaffSet.length,
     'withIncomplete': incompleteStaffSet.length,
   };
 });
@@ -233,6 +250,13 @@ class _AdminWelcomeSection extends ConsumerWidget {
       error: (e, _) => 'Admin',
     );
 
+    String greeting() {
+      final hour = DateTime.now().hour;
+      if (hour < 12) return 'Good Morning';
+      if (hour < 17) return 'Good Afternoon';
+      return 'Good Evening';
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -251,7 +275,7 @@ class _AdminWelcomeSection extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Good Morning, $adminName',
+                '${greeting()}, $adminName',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 2),
