@@ -4,6 +4,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../tasks/ui/task_list_screen.dart';
 import '../../customers/ui/customer_list_screen.dart';
 import '../../staff/ui/delivery_details_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../notifications/ui/notifications_screen.dart';
 
@@ -672,7 +673,7 @@ class _DeliveryStaffDashboardWidgetState extends ConsumerState<_DeliveryStaffDas
       key: ValueKey(_refreshCounter),
       future: supabase
           .from('material_dispatches')
-          .select('*, customers(name, village, pm_surya_ghar_application_id, address)')
+          .select('*, customers(name, village, pm_surya_ghar_application_id, address, mobile)')
           .eq('delivery_staff_id', widget.userId)
           .order('created_at', ascending: false)
           .then((res) => List<Map<String, dynamic>>.from(res)),
@@ -742,6 +743,7 @@ class _DeliveryStaffDashboardWidgetState extends ConsumerState<_DeliveryStaffDas
                   final customer = d['customers'] ?? {};
                   final custName = customer['name'] ?? 'N/A';
                   final village = customer['village'] ?? 'N/A';
+                  final mobile = customer['mobile'] as String?;
                   final materialName = d['material_name'] ?? 'N/A';
                   final qty = d['quantity'] ?? 0;
                   final status = d['status'] ?? 'Pending';
@@ -768,9 +770,12 @@ class _DeliveryStaffDashboardWidgetState extends ConsumerState<_DeliveryStaffDas
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Customer: $custName',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              Expanded(
+                                child: Text(
+                                  'Customer: $custName',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -789,6 +794,58 @@ class _DeliveryStaffDashboardWidgetState extends ConsumerState<_DeliveryStaffDas
                           Text('Site: $village', style: const TextStyle(color: Colors.black54)),
                           const SizedBox(height: 4),
                           Text('Material: $materialName × $qty', style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
+                          
+                          if (mobile != null && mobile.trim().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.phone_android, size: 16, color: Colors.grey),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      mobile,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                  ),
+                                  // Call Button
+                                  IconButton(
+                                    icon: const Icon(Icons.call, color: Colors.blue, size: 22),
+                                    tooltip: 'Call Customer',
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    onPressed: () async {
+                                      final Uri url = Uri(scheme: 'tel', path: mobile);
+                                      if (await canLaunchUrl(url)) {
+                                        await launchUrl(url);
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // WhatsApp Button
+                                  IconButton(
+                                    icon: const Icon(Icons.message, color: Colors.green, size: 22),
+                                    tooltip: 'WhatsApp Customer',
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    onPressed: () async {
+                                      final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+                                      final Uri url = Uri.parse('https://wa.me/91$cleanMobile');
+                                      if (await canLaunchUrl(url)) {
+                                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
                           const SizedBox(height: 16),
                           SizedBox(
                             width: double.infinity,

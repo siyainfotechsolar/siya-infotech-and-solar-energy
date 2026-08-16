@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/notifications/notification_state.dart';
 
 class DeliveryDetailsScreen extends ConsumerStatefulWidget {
@@ -156,6 +157,7 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
   Widget build(BuildContext context) {
     final customer = widget.dispatch['customers'] ?? {};
     final customerName = customer['name'] ?? 'N/A';
+    final mobile = customer['mobile'] as String?;
     final appId = customer['pm_surya_ghar_application_id'] ?? 'N/A';
     final address = customer['address'] ?? customer['village'] ?? 'N/A';
     final material = widget.dispatch['material_name'] ?? 'N/A';
@@ -184,6 +186,41 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
                   children: [
                     _buildInfoRow('Customer Name:', customerName, isHeader: true),
                     const Divider(height: 20),
+                    if (mobile != null && mobile.trim().isNotEmpty) ...[
+                      Row(
+                        children: [
+                          const Text('Mobile Number: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                          Expanded(
+                            child: SelectableText(
+                              mobile,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.call, color: Colors.blue),
+                            tooltip: 'Call Customer',
+                            onPressed: () async {
+                              final Uri url = Uri(scheme: 'tel', path: mobile);
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url);
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.message, color: Colors.green),
+                            tooltip: 'WhatsApp Customer',
+                            onPressed: () async {
+                              final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+                              final Uri url = Uri.parse('https://wa.me/91$cleanMobile');
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url, mode: LaunchMode.externalApplication);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     _buildInfoRow('PM Surya Ghar App ID:', appId),
                     _buildInfoRow('Site Address:', address),
                     _buildInfoRow('Material:', material),
