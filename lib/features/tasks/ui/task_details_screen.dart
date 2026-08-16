@@ -355,23 +355,12 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                                 'activity_type': 'reassigned',
                               });
 
-                              // Notify new assigned staff
-                              await supabase.from('notifications').insert({
-                                'user_id': newStaffId,
-                                'recipient_user_id': newStaffId,
-                                'notification_type': 'task_assigned',
-                                'title': '🔔 New Task Assigned',
-                                'message': 'You have been reassigned to task:\n${widget.task['name']}\n\nAssigned by:\n$currentStaffName',
-                                'task_id': taskId,
-                                'is_read': false,
-                                'created_at': DateTime.now().toUtc().toIso8601String(),
-                              });
-
+                              // Notify new assigned staff via Edge Function
                               try {
                                 final notificationRepo = ref.read(notificationRepositoryProvider);
                                 await notificationRepo.sendNotification(
                                   recipientUserId: newStaffId,
-                                  notificationType: 'task_assigned',
+                                  notificationType: 'TASK_ASSIGNED',
                                   title: '🔔 New Task Assigned',
                                   message: 'You have been reassigned to task:\n${widget.task['name']}\n\nAssigned by:\n$currentStaffName',
                                   taskId: taskId,

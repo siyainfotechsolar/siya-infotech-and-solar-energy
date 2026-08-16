@@ -74,7 +74,14 @@ class NotificationService {
 
   Future<void> _initFirebase() async {
     try {
-      await fb_core.Firebase.initializeApp();
+      // Firebase.initializeApp() is called in main.dart — just check if it succeeded
+      final apps = fb_core.Firebase.apps;
+      if (apps.isEmpty) {
+        _firebaseAvailable = false;
+        debugPrint('[NotificationService] Firebase not initialized — skipping FCM setup.');
+        return;
+      }
+
       _firebaseAvailable = true;
       _fcm = fb_msg.FirebaseMessaging.instance;
 
@@ -84,11 +91,11 @@ class NotificationService {
       fb_msg.FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
       fb_msg.FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-      debugPrint('[NotificationService] Firebase initialized successfully.');
+      debugPrint('[NotificationService] FCM listeners configured.');
     } catch (e) {
       _firebaseAvailable = false;
       debugPrint(
-          '[NotificationService] Firebase init failed (google-services.json may be missing): $e');
+          '[NotificationService] Firebase/FCM setup failed: $e');
       debugPrint('[NotificationService] App continues — realtime notifications still work.');
     }
   }

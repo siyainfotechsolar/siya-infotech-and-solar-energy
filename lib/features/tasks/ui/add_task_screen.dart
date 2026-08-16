@@ -176,21 +176,11 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
           // Notify assigned staff members
           for (final staffId in _selectedStaffIds) {
             try {
-              await supabase.from('notifications').insert({
-                'user_id': staffId,
-                'recipient_user_id': staffId,
-                'notification_type': 'task_assigned',
-                'title': '🔔 New Task Assigned',
-                'message': 'You have been assigned to task:\n${_taskName!.trim()}\n\nAssigned by:\n$adminName',
-                'task_id': taskId,
-                'is_read': false,
-                'created_at': DateTime.now().toUtc().toIso8601String(),
-              });
-
+              // Send notification via Edge Function (inserts DB row + sends FCM push)
               final notificationRepo = ref.read(notificationRepositoryProvider);
               await notificationRepo.sendNotification(
                 recipientUserId: staffId,
-                notificationType: 'task_assigned',
+                notificationType: 'TASK_ASSIGNED',
                 title: '🔔 New Task Assigned',
                 message: 'You have been assigned to task:\n${_taskName!.trim()}\n\nAssigned by:\n$adminName',
                 taskId: taskId,
@@ -199,6 +189,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
               debugPrint('[AddTaskScreen] Failed to notify staff $staffId: $err');
             }
           }
+
 
           // Upload attachments
           for (final att in _attachments) {

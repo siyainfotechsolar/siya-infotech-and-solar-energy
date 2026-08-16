@@ -27,6 +27,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   bool _isCheckingVersion = true;
   bool _needsForceUpdate = false;
   bool _showNormalUpdatePrompt = false;
+  bool _notificationsInitialized = false;
   AppReleaseInfo? _activeRelease;
 
   @override
@@ -241,22 +242,27 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
         return roleAsync.when(
           data: (role) {
-            // Safe background initialization for notifications without blocking app UI
-            WidgetsBinding.instance.addPostFrameCallback((_) async {
-              if (!mounted) return;
-              try {
-                final repo = ref.read(notificationRepositoryProvider);
-                final notifier = ref.read(notificationNotifierProvider.notifier);
-                NotificationSender.setInstance(repo);
-                await notificationService.initialize(repo: repo, notifier: notifier).timeout(const Duration(seconds: 8));
-                await notificationService.requestPermission().timeout(const Duration(seconds: 5));
-                await notificationService.registerDeviceToken(userId).timeout(const Duration(seconds: 5));
-                final supabase = ref.read(supabaseClientProvider);
-                await notifier.initialize(supabase, userId).timeout(const Duration(seconds: 8));
-              } catch (e) {
-                debugPrint('AuthWrapper: Notification initialization skipped/failed safely: $e');
-              }
-            });
+            // Safe background initialization for notifications — runs once per session
+            if (!_notificationsInitialized) {
+              _notificationsInitialized = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                if (!mounted) return;
+                try {
+                  final repo = ref.read(notificationRepositoryProvider);
+                  final notifier = ref.read(notificationNotifierProvider.notifier);
+                  NotificationSender.setInstance(repo);
+                  await notificationService.initialize(repo: repo, notifier: notifier).timeout(const Duration(seconds: 15));
+                  await notificationService.requestPermission().timeout(const Duration(seconds: 10));
+                  await notificationService.registerDeviceToken(userId).timeout(const Duration(seconds: 10));
+                  final supabase = ref.read(supabaseClientProvider);
+                  await notifier.initialize(supabase, userId).timeout(const Duration(seconds: 15));
+                  debugPrint('[AuthWrapper] Notification system initialized successfully.');
+                } catch (e) {
+                  debugPrint('[AuthWrapper] Notification initialization failed safely: $e');
+                  _notificationsInitialized = false; // Allow retry on next rebuild
+                }
+              });
+            }
 
             if (role == 'admin') return const AdminDashboardScreen();
             if (role == 'office_staff') return const StaffDashboardScreen();

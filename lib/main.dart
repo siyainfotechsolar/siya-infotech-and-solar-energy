@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/realtime_service.dart';
 import 'core/widgets/global_loading_overlay.dart';
-// notification_service is imported at auth_wrapper level; just keep the import clean here
-// ignore: unused_import
-import 'core/notifications/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,12 +17,22 @@ void main() async {
     anonKey: SupabaseConstants.supabaseAnonKey,
   );
 
+  // Initialize Firebase (one-time, before runApp)
+  try {
+    await Firebase.initializeApp();
+    debugPrint('[main] Firebase initialized successfully.');
+  } catch (e) {
+    debugPrint('[main] Firebase init failed (google-services.json may be missing): $e');
+    debugPrint('[main] App continues — in-app notifications still work via Supabase Realtime.');
+  }
+
   runApp(
     const ProviderScope(
       child: SolarCrmApp(),
     ),
   );
 }
+
 
 class SolarCrmApp extends ConsumerWidget {
   const SolarCrmApp({super.key});
