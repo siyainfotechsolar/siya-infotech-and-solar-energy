@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/notifications/notification_state.dart';
+import '../../../core/notifications/notification_model.dart';
 
 class DeliveryDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> dispatch;
@@ -121,18 +122,14 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
       final staffNameRes = await supabase.from('staff').select('name').eq('id', user?.id ?? '').maybeSingle();
       final staffName = staffNameRes?['name'] ?? 'Delivery Staff';
 
-      final adminsResponse = await supabase.from('staff').select('id').eq('role', 'admin').eq('status', 'active');
-      final adminsList = List<Map<String, dynamic>>.from(adminsResponse);
-
       final notificationRepo = ref.read(notificationRepositoryProvider);
-      for (var admin in adminsList) {
-        await notificationRepo.sendNotification(
-          recipientUserId: admin['id'],
-          notificationType: 'MATERIAL_DELIVERED',
-          title: '✅ Material Delivered',
-          message: 'Customer:\n$customerName\n\nDelivery Staff:\n$staffName\n\nMaterial:\n${widget.dispatch['material_name']} × ${widget.dispatch['quantity']}',
-        );
-      }
+      await notificationRepo.notifyAdmins(
+        notificationType: NotificationType.materialDelivered,
+        title: '📦 Material Delivered',
+        message: 'Customer:\n$customerName\n\nDelivery Staff:\n$staffName\n\nMaterial:\n${widget.dispatch['material_name']} × ${widget.dispatch['quantity']}',
+        dispatchId: widget.dispatch['id'],
+        relatedRecordId: widget.dispatch['customer_id'],
+      );
 
       setState(() {
         _status = 'Delivered';

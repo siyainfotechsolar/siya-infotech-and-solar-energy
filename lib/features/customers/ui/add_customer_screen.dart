@@ -5,6 +5,8 @@ import '../../../core/utils/date_utils.dart';
 import 'customer_details_screen.dart';
 import '../providers/customer_provider.dart';
 import '../../../core/utils/activity_logger.dart';
+import '../../../core/notifications/notification_state.dart';
+import '../../../core/notifications/notification_model.dart';
 
 class AddCustomerScreen extends ConsumerStatefulWidget {
   const AddCustomerScreen({super.key});
@@ -194,6 +196,14 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
             action: 'customer_added',
             description: '$staffName added customer ${insertedCustomer['name']}',
             performedBy: user.id,
+          );
+
+          final notificationRepo = ref.read(notificationRepositoryProvider);
+          await notificationRepo.notifyAdmins(
+            notificationType: NotificationType.customerCreated,
+            title: '👤 New Customer Added',
+            message: 'New customer ${insertedCustomer['name']} has been added.',
+            relatedRecordId: insertedCustomer['id'],
           );
         } catch (_) {}
       }

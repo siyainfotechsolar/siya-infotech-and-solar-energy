@@ -189,18 +189,17 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                           );
                         }
 
-                        // 5. Notify Admins & Supervisors
-                        final adminsResponse = await supabase.from('staff').select('id').inFilter('role', ['admin', 'supervisor']).eq('status', 'active');
-                        final adminsList = List<Map<String, dynamic>>.from(adminsResponse);
-                        for (var admin in adminsList) {
-                          if (admin['id'] != user?.id) {
-                            await supabase.from('notifications').insert({
-                              'user_id': admin['id'],
-                              'title': 'Task Not Completed',
-                              'message': '$staffName could not complete:\n${widget.task['name']}\n\nReason:\n$reason',
-                            });
-                          }
-                        }
+                        // 5. Notify Admins & Supervisors via FCM Notification Edge Function
+                        try {
+                          final notificationRepo = ref.read(notificationRepositoryProvider);
+                          await notificationRepo.notifyAdmins(
+                            notificationType: NotificationType.taskNotCompleted,
+                            title: '⚠️ Task Not Completed',
+                            message: 'Task "${widget.task['name']}" marked not completed by $staffName.\nReason: $reason',
+                            taskId: taskId,
+                            relatedRecordId: widget.task['customer_id'],
+                          );
+                        } catch (_) {}
 
                         ref.invalidate(taskDetailsProvider(taskId));
                         ref.invalidate(incompleteTaskListProvider);
@@ -559,6 +558,15 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
             action: 'task_completed',
             description: '$staffName completed task ${widget.task['name']}',
             performedBy: user.id,
+          );
+
+          final notificationRepo = ref.read(notificationRepositoryProvider);
+          await notificationRepo.notifyAdmins(
+            notificationType: NotificationType.taskCompleted,
+            title: '✅ Task Completed',
+            message: 'Task "${widget.task['name']}" was completed by $staffName.',
+            taskId: taskId,
+            relatedRecordId: widget.task['customer_id'],
           );
         } catch (_) {}
       }

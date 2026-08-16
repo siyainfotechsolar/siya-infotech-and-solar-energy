@@ -10,6 +10,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../customers/providers/customer_provider.dart';
 import '../../../core/services/global_loading_service.dart';
+import '../../../core/notifications/notification_state.dart';
+import '../../../core/notifications/notification_model.dart';
 
 // Model for parsed rows in preview stage
 class PreviewRow {
@@ -511,6 +513,16 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
       // Refresh customer list
       ref.invalidate(customerListProvider);
+
+      try {
+        final notificationRepo = ref.read(notificationRepositoryProvider);
+        await notificationRepo.notifyAdmins(
+          notificationType: NotificationType.importCompleted,
+          title: '📊 Data Import Completed',
+          message: 'Customer import completed: $importedCount records imported, $errorCount records failed.',
+          relatedRecordId: 'import',
+        );
+      } catch (_) {}
 
       if (mounted) {
         showDialog(

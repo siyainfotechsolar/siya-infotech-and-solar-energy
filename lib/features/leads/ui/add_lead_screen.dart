@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/notifications/notification_state.dart';
+import '../../../core/notifications/notification_model.dart';
 
 class AddLeadScreen extends ConsumerStatefulWidget {
   const AddLeadScreen({super.key});
@@ -34,13 +36,23 @@ class _AddLeadScreenState extends ConsumerState<AddLeadScreen> {
     try {
       final supabase = ref.read(supabaseClientProvider);
       
-      await supabase.from('leads').insert({
+      final insertedLead = await supabase.from('leads').insert({
         'name': _nameController.text.trim(),
         'mobile': _mobileController.text.trim(),
         'village': _cityController.text.trim(),
         'source': _source,
         'status': 'pending',
-      });
+      }).select().single();
+      
+      try {
+        final notificationRepo = ref.read(notificationRepositoryProvider);
+        await notificationRepo.notifyAdmins(
+          notificationType: NotificationType.leadCreated,
+          title: '🎯 New Lead Added',
+          message: 'New lead ${insertedLead['name']} has been added.',
+          relatedRecordId: insertedLead['id'],
+        );
+      } catch (_) {}
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lead created successfully!')));

@@ -135,6 +135,8 @@ class NotificationRepository {
     String? eventId,
   }) async {
     try {
+      final uniqueEventId = eventId ?? '${notificationType}_${relatedRecordId ?? taskId ?? dispatchId ?? DateTime.now().millisecondsSinceEpoch}_$recipientUserId';
+
       await _supabase.functions.invoke(
         'send-notification',
         body: {
@@ -146,13 +148,54 @@ class NotificationRepository {
           if (taskId != null) 'task_id': taskId,
           if (dispatchId != null) 'dispatch_id': dispatchId,
           if (metadata != null) 'metadata': metadata,
-          if (eventId != null) 'event_id': eventId,
+          'event_id': uniqueEventId,
         },
       );
       debugPrint('[NotificationRepo] Notification sent: $notificationType → $recipientUserId');
     } catch (e) {
       // Notification failure must NOT break core app functionality
       debugPrint('[NotificationRepo] sendNotification error (non-fatal): $e');
+    }
+  }
+
+  // ─── Notify all Active Admins ──────────────────────────────────────────────
+  Future<void> notifyAdmins({
+    required String notificationType,
+    required String title,
+    required String message,
+    String? relatedRecordId,
+    String? taskId,
+    String? dispatchId,
+    Map<String, dynamic>? metadata,
+    String? eventId,
+  }) async {
+    try {
+      final admins = await _supabase
+          .from('staff')
+          .select('id')
+          .eq('role', 'admin')
+          .eq('status', 'active');
+      
+      final adminIds = (admins as List).map((a) => a['id'] as String).toList();
+      for (final adminId in adminIds) {
+        final uniqueEventId = eventId != null 
+            ? '${eventId}_$adminId' 
+            : '${notificationType}_${relatedRecordId ?? taskId ?? dispatchId ?? DateTime.now().millisecondsSinceEpoch}_$adminId';
+            
+        await sendNotification(
+          recipientUserId: adminId,
+          notificationType: notificationType,
+          title: title,
+          message: message,
+          relatedRecordId: relatedRecordId,
+          taskId: taskId,
+          dispatchId: dispatchId,
+          metadata: metadata,
+          eventId: uniqueEventId,
+        );
+      }
+    } catch (e) {
+      debugPrint('[NotificationRepo] notifyAdmins error: $e');
     }
   }
 }

@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'dart:io' as io;
 import '../../../core/constants/supabase_constants.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/notifications/notification_state.dart';
+import '../../../core/notifications/notification_model.dart';
 
 class AddStaffScreen extends ConsumerStatefulWidget {
   final String? initialName;
@@ -219,6 +221,16 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
         'status': _status,
         'profile_photo_url': profilePhotoUrl,
       });
+
+      try {
+        final notificationRepo = ref.read(notificationRepositoryProvider);
+        await notificationRepo.notifyAdmins(
+          notificationType: NotificationType.staffCreated,
+          title: '👥 New Staff Created',
+          message: 'New staff member ${_nameController.text.trim()} ($_role) has been created.',
+          relatedRecordId: userId,
+        );
+      } catch (_) {}
 
       if (widget.temporaryContactId != null) {
         await mainSupabase.from('temporary_contacts').delete().eq('id', widget.temporaryContactId!);
