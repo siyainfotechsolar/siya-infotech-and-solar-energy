@@ -12,6 +12,7 @@ import '../../staff/ui/staff_directory_screen.dart';
 import '../../import/ui/import_screen.dart';
 import '../../customers/ui/customer_merge_screen.dart';
 import '../../tasks/ui/unassigned_tasks_screen.dart';
+import 'audit_log_screen.dart';
 
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
@@ -117,6 +118,13 @@ class MoreScreen extends ConsumerWidget {
                       title: const Text('Customer Merge'),
                       onTap: () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const CustomerMergeScreen()));
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.history_toggle_off),
+                      title: const Text('Activity History & Audit Log'),
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AuditLogScreen()));
                       },
                     ),
                     ListTile(

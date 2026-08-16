@@ -144,6 +144,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     // Navigate to related record
     await NotificationRouter.handleTap(
       context: context,
+      ref: ref,
       notification: notification,
     );
   }

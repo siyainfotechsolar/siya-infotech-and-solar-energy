@@ -11,8 +11,9 @@ import 'dart:io' as io;
 import '../../../core/utils/date_utils.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../customers/ui/customer_details_screen.dart';
-import '../../tasks/ui/task_details_screen.dart';
+import '../../tasks/services/task_details_router.dart';
 import 'add_staff_screen.dart';
+import 'permission_management_screen.dart';
 
 // ─── Staff Filter ────────────────────────────────────────────────────────────
 class StaffFilter {
@@ -986,6 +987,30 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PermissionManagementScreen(staffMember: _currentStaff),
+                                ),
+                              ).then((_) {
+                                ref.invalidate(staffListProvider);
+                              });
+                            },
+                            icon: const Icon(Icons.security, size: 18),
+                            label: const Text('MANAGE ACCESS & PERMISSIONS'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
                             onPressed: _showResetPasswordDialog,
                             icon: const Icon(Icons.lock_reset, size: 18),
                             label: const Text('RESET / CHANGE STAFF PASSWORD'),
@@ -1159,10 +1184,9 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                       return Card(
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         child: ListTile(
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => TaskDetailsScreen(task: t),
-                            )).then((_) => ref.invalidate(staffWorkHistoryProvider(_currentStaff['id'])));
+                          onTap: () async {
+                            await TaskDetailsRouter.open(context, ref, t);
+                            ref.invalidate(staffWorkHistoryProvider(_currentStaff['id']));
                           },
                           title: Text(t['name'] ?? 'Task', style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Column(
@@ -1350,10 +1374,9 @@ class _StaffTasksScreenState extends ConsumerState<StaffTasksScreen> {
 
                     return Card(
                       child: ListTile(
-                        onTap: () {
-                          Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => TaskDetailsScreen(task: t),
-                          )).then((_) => ref.invalidate(staffTasksProvider((staffId: widget.staffId, query: _searchQuery))));
+                        onTap: () async {
+                          await TaskDetailsRouter.open(context, ref, t);
+                          ref.invalidate(staffTasksProvider((staffId: widget.staffId, query: _searchQuery)));
                         },
                         title: Text(t['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Column(

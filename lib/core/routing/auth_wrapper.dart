@@ -268,8 +268,42 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
             if (role == 'office_staff' || role == 'delivery_staff' || role == 'supervisor') return const StaffDashboardScreen();
             if (role == 'installer' || role == 'wireman') return const InstallerDashboardScreen();
             
-            // Unknown role — show pending activation
-            return const Scaffold(body: Center(child: Text('Account pending activation...')));
+            // Inactive / Deactivated account or pending activation
+            return Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.block, size: 80, color: Colors.red),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Account Deactivated / Inactive',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Your staff access has been disabled by Admin. Please contact Admin for assistance.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: () {
+                          final supabase = ref.read(supabaseClientProvider);
+                          ref.read(notificationNotifierProvider.notifier).clear();
+                          notificationService.removeDeviceToken(userId);
+                          supabase.auth.signOut();
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                        child: const Text('LOGOUT'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
           },
           loading: () => const SplashScreen(),
           error: (e, _) => Scaffold(

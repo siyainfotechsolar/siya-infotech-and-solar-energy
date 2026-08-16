@@ -6,6 +6,8 @@ import '../../auth/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../../core/notifications/notification_model.dart';
+import '../../../core/utils/activity_logger.dart';
+import '../../../core/utils/date_utils.dart';
 
 class DeliveryDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> dispatch;
@@ -33,12 +35,24 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
     setState(() => _isLoading = true);
     try {
       final supabase = ref.read(supabaseClientProvider);
+      final user = ref.read(currentUserProvider);
       final dispatchId = widget.dispatch['id'];
 
       await supabase.from('material_dispatches').update({
         'status': 'Out for Delivery',
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', dispatchId);
+
+      final staffNameRes = await supabase.from('staff').select('name').eq('id', user?.id ?? '').maybeSingle();
+      final staffName = staffNameRes?['name'] ?? 'Delivery Staff';
+
+      await ActivityLogger.log(
+        supabase: supabase,
+        customerId: widget.dispatch['customer_id'],
+        action: 'delivery_started',
+        description: '$staffName started delivery of ${widget.dispatch['material_name']} × ${widget.dispatch['quantity']}',
+        performedBy: user?.id,
+      );
 
       setState(() {
         _status = 'Out for Delivery';
@@ -111,16 +125,41 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
         finalPhotoUrl = supabase.storage.from('task_attachments').getPublicUrl(uploadPath);
       }
 
-      // 2. Update dispatch status
-      await supabase.from('material_dispatches').update({
-        'status': 'Delivered',
-        'photo_url': finalPhotoUrl,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', dispatchId);
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+      final formattedTime = AppDateUtils.formatDateTime(nowIso);
+
+      // 2. Update dispatch status & delivered_at timestamp (with fallback if column not in DB yet)
+      try {
+        await supabase.from('material_dispatches').update({
+          'status': 'Delivered',
+          'photo_url': finalPhotoUrl,
+          'delivered_at': nowIso,
+          'updated_at': nowIso,
+        }).eq('id', dispatchId);
+      } catch (err) {
+        if (err.toString().contains('delivered_at') || err.toString().contains('PGRST204')) {
+          await supabase.from('material_dispatches').update({
+            'status': 'Delivered',
+            'photo_url': finalPhotoUrl,
+            'updated_at': nowIso,
+          }).eq('id', dispatchId);
+        } else {
+          rethrow;
+        }
+      }
 
       // 3. Notify Admin users via Edge Function (bypasses RLS & triggers FCM push)
       final staffNameRes = await supabase.from('staff').select('name').eq('id', user?.id ?? '').maybeSingle();
       final staffName = staffNameRes?['name'] ?? 'Delivery Staff';
+
+      // 4. Log to Activity Feed with timestamp
+      await ActivityLogger.log(
+        supabase: supabase,
+        customerId: widget.dispatch['customer_id'],
+        action: 'delivery_completed',
+        description: '$staffName completed delivery of ${widget.dispatch['material_name']} × ${widget.dispatch['quantity']} on $formattedTime',
+        performedBy: user?.id,
+      );
 
       final notificationRepo = ref.read(notificationRepositoryProvider);
       await notificationRepo.notifyAdmins(

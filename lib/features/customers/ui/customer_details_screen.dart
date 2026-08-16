@@ -16,6 +16,7 @@ import '../providers/customer_provider.dart';
 import '../../../core/services/realtime_service.dart';
 import '../../../core/utils/activity_logger.dart';
 import 'widgets/customer_admin_photos_widget.dart';
+import 'widgets/consolidated_installation_widget.dart';
 
 
 
@@ -35,6 +36,21 @@ class _CustomerDetailsScreenState extends ConsumerState<CustomerDetailsScreen> {
   late Map<String, dynamic> _customerData;
   Map<String, String>? _installationStatuses;
   final Map<String, PlatformFile?> _installerPickedPhotos = {};
+
+  int _getStageIndex(String? stage) {
+    if (stage == null) return 0;
+    final s = stage.trim().toLowerCase();
+    if (s == 'lead') return 0;
+    if (s.contains('application')) return 1;
+    if (s.contains('loan')) return 2;
+    if (s.contains('material required') || s == 'material_required') return 3;
+    if (s.contains('material dispatched') || s == 'material_dispatched') return 4;
+    if (s.contains('installation')) return 5;
+    if (s.contains('rts')) return 6;
+    if (s.contains('subsidy')) return 7;
+    if (s.contains('completed')) return 8;
+    return 0;
+  }
 
   @override
   void initState() {
@@ -525,7 +541,7 @@ class _CustomerDetailsScreenState extends ConsumerState<CustomerDetailsScreen> {
                           label: Text(_currentStage, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           backgroundColor: StageConfig.stageColor(_currentStage),
                         ),
-                        if (!StageConfig.isCompleted(_currentStage))
+                        if (!StageConfig.isCompleted(_currentStage) && (role == 'admin' || role == 'office_staff'))
                           ElevatedButton.icon(
                             onPressed: _isAdvancing ? null : _advanceStage,
                             icon: _isAdvancing ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.arrow_forward),
@@ -537,18 +553,32 @@ class _CustomerDetailsScreenState extends ConsumerState<CustomerDetailsScreen> {
                 ),
               ),
             ),
-            if (_currentStage == 'Installation') ...[
-              _buildInstallationProgressSection(),
+            // --- Stage-Based UI Visibility Sections ---
+            if (_getStageIndex(_currentStage) >= 3) ...[
+              _MaterialSummaryCard(
+                customerId: customer['id'],
+                customerName: customer['name'] ?? '',
+                pmSuryaGharApplicationId: customer['pm_surya_ghar_application_id'],
+              ),
               const SizedBox(height: 16),
             ],
 
-             // --- Site Material Summary Card ---
-            _MaterialSummaryCard(
-              customerId: customer['id'],
-              customerName: customer['name'] ?? '',
-              pmSuryaGharApplicationId: customer['pm_surya_ghar_application_id'],
-            ),
-            const SizedBox(height: 16),
+            if (_getStageIndex(_currentStage) >= 5) ...[
+              _buildInstallationProgressSection(),
+              const SizedBox(height: 16),
+              ConsolidatedInstallationSummaryCard(customer: _customerData),
+              const SizedBox(height: 24),
+            ],
+
+            if (_getStageIndex(_currentStage) >= 6) ...[
+              _buildRtsDetailsSection(),
+              const SizedBox(height: 16),
+            ],
+
+            if (_getStageIndex(_currentStage) >= 7) ...[
+              _buildSubsidyDetailsSection(),
+              const SizedBox(height: 16),
+            ],
 
             // --- Tasks Section ---
             const Text('Tasks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -580,17 +610,13 @@ class _CustomerDetailsScreenState extends ConsumerState<CustomerDetailsScreen> {
             ),
 
             const SizedBox(height: 24),
-            
-            // --- Customer Installation & Electrical Photos ---
-            CustomerAdminPhotosWidget(customerId: _customerData['id']),
-            const SizedBox(height: 24),
 
-            // --- Stage History Section ---
-            const Text('Stage History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            // --- Activity & Stage History Section ---
+            const Text('Activity & Stage History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             historyAsync.when(
               data: (history) {
-                if (history.isEmpty) return const Text('No history available.', style: TextStyle(color: Colors.grey));
+                if (history.isEmpty) return const Text('No activity history available.', style: TextStyle(color: Colors.grey));
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -598,22 +624,24 @@ class _CustomerDetailsScreenState extends ConsumerState<CustomerDetailsScreen> {
                   itemBuilder: (context, index) {
                     final h = history[index];
                     final staff = h['staff'] as Map<String, dynamic>?;
-                    final staffName = staff?['name'] ?? 'Unknown';
+                    final staffName = staff?['name'] ?? 'System / Staff';
                     final photoUrl = staff?['profile_photo_url'] as String?;
                     final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
-                    
+                    final title = h['title'] ?? (h['new_stage'] != null ? 'Advanced to ${h['new_stage']}' : 'Activity Logged');
+                    final isDelivery = (h['action'] as String? ?? '').contains('delivery') || title.toLowerCase().contains('deliver');
+
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
                         radius: 18,
                         backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-                        backgroundColor: hasPhoto ? Colors.transparent : Colors.blue.shade50,
+                        backgroundColor: hasPhoto ? Colors.transparent : (isDelivery ? Colors.green.shade50 : Colors.blue.shade50),
                         child: hasPhoto
                             ? null
-                            : const Icon(Icons.history, size: 18, color: Colors.blue),
+                            : Icon(isDelivery ? Icons.local_shipping : Icons.history, size: 18, color: isDelivery ? Colors.green : Colors.blue),
                       ),
-                      title: Text('Advanced to ${h['new_stage']}'),
-                      subtitle: Text('By $staffName on ${AppDateUtils.formatDateTime(h['created_at'])}'),
+                      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text('By $staffName • ${AppDateUtils.formatDateTime(h['created_at'])}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                     );
                   },
                 );
@@ -643,6 +671,60 @@ class _CustomerDetailsScreenState extends ConsumerState<CustomerDetailsScreen> {
         },
         loading: () => null,
         error: (_, __) => null,
+      ),
+    );
+  }
+
+  Widget _buildRtsDetailsSection() {
+    final refNo = _customerData['reference'] ?? 'N/A';
+    final remarks = _customerData['remarks'] ?? 'No remarks';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.electric_meter_outlined, color: Colors.teal),
+                const SizedBox(width: 8),
+                const Text('RTS DETAILS & METER STATUS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Reference Number: $refNo'),
+            Text('RTS Status: ${StageConfig.isCompleted(_currentStage) ? "Completed" : "In Progress"}'),
+            if (remarks.isNotEmpty && remarks != 'No remarks') Text('Remarks: $remarks'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubsidyDetailsSection() {
+    final pmAppId = _customerData['pm_surya_ghar_application_id'] ?? 'N/A';
+    final remarks = _customerData['remarks'] ?? 'No remarks';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFFFBC02D)),
+                const SizedBox(width: 8),
+                const Text('SUBSIDY APPLICATION & STATUS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFFBC02D))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Application ID: $pmAppId'),
+            Text('Subsidy Status: ${StageConfig.isCompleted(_currentStage) ? "Approved & Released" : "Processing"}'),
+            if (remarks.isNotEmpty && remarks != 'No remarks') Text('Remarks: $remarks'),
+          ],
+        ),
       ),
     );
   }

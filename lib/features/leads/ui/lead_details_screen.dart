@@ -91,6 +91,7 @@ class _LeadDetailsScreenState extends ConsumerState<LeadDetailsScreen> {
       // 3. Insert into Customers
       final insertedCustomer = await supabase.from('customers').insert({
         'customer_id': generatedId,
+        'lead_id': widget.lead['id'],
         'name': widget.lead['name'],
         'mobile': widget.lead['mobile'],
         'village': widget.lead['village'],

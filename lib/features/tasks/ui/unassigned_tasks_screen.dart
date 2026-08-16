@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/task_provider.dart';
 import '../../../core/notifications/notification_state.dart';
-import 'task_details_screen.dart';
+import '../services/task_details_router.dart';
 
 class UnassignedTasksScreen extends ConsumerStatefulWidget {
   const UnassignedTasksScreen({super.key});
@@ -238,7 +238,7 @@ class _UnassignedTasksScreenState extends ConsumerState<UnassignedTasksScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           TextButton.icon(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: task))),
+                            onPressed: () => TaskDetailsRouter.open(context, ref, task),
                             icon: const Icon(Icons.info_outline, size: 16),
                             label: const Text('Details'),
                           ),

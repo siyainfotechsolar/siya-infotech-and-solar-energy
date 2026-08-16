@@ -399,10 +399,17 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
                                   const SizedBox(height: 2),
                                   Row(
                                     children: [
-                                      Text('Status: '),
+                                      const Text('Status: '),
                                       Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
+                                  if (d['delivered_at'] != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text('Delivered: ${AppDateUtils.formatDateTime(d['delivered_at'])}', style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ] else if (d['created_at'] != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text('Created: ${AppDateUtils.formatDateTime(d['created_at'])}', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                                  ],
                                 ],
                               ),
                               trailing: Row(

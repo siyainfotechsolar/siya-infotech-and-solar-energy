@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/date_utils.dart';
 import '../providers/task_provider.dart';
-import 'task_details_screen.dart';
+import '../services/task_details_router.dart';
 
 class IncompleteTasksScreen extends ConsumerStatefulWidget {
   const IncompleteTasksScreen({super.key});
@@ -214,17 +214,11 @@ class _IncompleteTasksScreenState extends ConsumerState<IncompleteTasksScreen> {
                             ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => TaskDetailsScreen(task: t),
-                                  ),
-                                ).then((_) {
-                                  if (context.mounted) {
-                                    ref.invalidate(incompleteTaskListProvider);
-                                  }
-                                });
+                              onTap: () async {
+                                await TaskDetailsRouter.open(context, ref, t);
+                                if (context.mounted) {
+                                  ref.invalidate(incompleteTaskListProvider);
+                                }
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),

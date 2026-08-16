@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'add_task_screen.dart';
-import 'task_details_screen.dart';
+import '../services/task_details_router.dart';
 import '../providers/task_provider.dart';
 import '../../../core/widgets/global_loading_overlay.dart';
 
@@ -357,7 +357,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
               ),
               trailing: _buildStatusChip(task['status'] ?? 'pending'),
               onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: task)));
+                await TaskDetailsRouter.open(context, ref, task);
                 ref.invalidate(taskListProvider);
               },
             ),

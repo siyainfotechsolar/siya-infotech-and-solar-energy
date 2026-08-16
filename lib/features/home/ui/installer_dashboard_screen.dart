@@ -143,9 +143,25 @@ class _InstallerHomeTab extends ConsumerWidget {
             const Text('MY TASKS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
             const SizedBox(height: 8),
             Row(children: [
-              Expanded(child: _StatCard(label: 'PENDING', count: pendingCount, icon: Icons.pending_actions_outlined, color: Colors.orange)),
+              Expanded(
+                child: _StatCard(
+                  label: 'PENDING',
+                  count: pendingCount,
+                  icon: Icons.pending_actions_outlined,
+                  color: Colors.orange,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _StatCard(label: 'COMPLETED', count: completedCount, icon: Icons.check_circle_outline, color: Colors.green)),
+              Expanded(
+                child: _StatCard(
+                  label: 'COMPLETED',
+                  count: completedCount,
+                  icon: Icons.check_circle_outline,
+                  color: Colors.green,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 1))),
+                ),
+              ),
             ]),
             const SizedBox(height: 20),
             const Text('QUICK ACTIONS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
@@ -168,23 +184,45 @@ class _StatCard extends StatelessWidget {
   final int count;
   final IconData icon;
   final Color color;
-  const _StatCard({required this.label, required this.count, required this.icon, required this.color});
+  final VoidCallback? onTap;
+
+  const _StatCard({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.color,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+    return Card(
+      elevation: 1,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        side: BorderSide(color: color.withValues(alpha: 0.25)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 8),
-        Text('$count', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.8)),
-      ]),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text('$count', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)),
+              Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.8)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

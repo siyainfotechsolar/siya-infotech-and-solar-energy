@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/date_utils.dart';
+import '../../../core/services/permission_service.dart';
+import '../../../core/services/data_filter_service.dart';
 
 class CustomerFilter {
   final String query;
@@ -74,33 +76,29 @@ class CustomerListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     final supabase = ref.watch(supabaseClientProvider);
     final filter = ref.watch(customerFilterProvider);
     final user = ref.read(currentUserProvider);
-    final role = await ref.read(userRoleProvider.future);
+    final perms = await ref.read(currentUserPermissionsProvider.future);
 
-    List<String> installerCustomerIds = [];
-    if (role == 'installer' && user != null) {
-      final assignedRes = await supabase
-          .from('task_staff')
-          .select('tasks(customer_id)')
-          .eq('staff_id', user.id);
-      
-      installerCustomerIds = (assignedRes as List)
-          .map((item) => (item['tasks'] as Map?)?['customer_id'] as String?)
-          .whereType<String>()
-          .toSet()
-          .toList();
+    List<String> scopedCustomerIds = [];
+    if (perms.dataAccessLevel == DataAccessLevel.assignedData && user != null) {
+      scopedCustomerIds = await DataFilterService.getAuthorizedCustomerIds(
+        supabase: supabase,
+        userId: user.id,
+        permissions: perms,
+      );
 
-      if (installerCustomerIds.isEmpty) {
+      if (scopedCustomerIds.isEmpty && perms.category != StaffCategory.admin) {
         _hasMore = false;
         return [];
       }
     }
 
+    final selectFields = DataFilterService.selectCustomerFields(perms);
     var query = supabase
         .from('customers')
-        .select('*, site_installation_tasks(task_type, status)');
+        .select('$selectFields, site_installation_tasks(task_type, status), tasks(name, status)');
 
-    if (role == 'installer') {
-      query = query.inFilter('id', installerCustomerIds);
+    if (scopedCustomerIds.isNotEmpty) {
+      query = query.inFilter('id', scopedCustomerIds);
     }
 
     if (filter.query.isNotEmpty) {
@@ -337,12 +335,47 @@ final customerListProvider = AsyncNotifierProvider<CustomerListNotifier, List<Ma
 
 final customerHistoryProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, customerId) async {
   final supabase = ref.watch(supabaseClientProvider);
-  final res = await supabase
-      .from('stage_history')
-      .select('*, staff(name, profile_photo_url)')
-      .eq('customer_id', customerId)
-      .order('created_at', ascending: false);
-  return List<Map<String, dynamic>>.from(res);
+  final results = <Map<String, dynamic>>[];
+
+  try {
+    final stageRes = await supabase
+        .from('stage_history')
+        .select('*, staff(name, profile_photo_url)')
+        .eq('customer_id', customerId);
+
+    if (stageRes is List) {
+      for (final item in stageRes) {
+        final m = Map<String, dynamic>.from(item);
+        m['type'] = 'stage';
+        m['title'] = 'Advanced to ${m['new_stage']}';
+        results.add(m);
+      }
+    }
+  } catch (_) {}
+
+  try {
+    final actRes = await supabase
+        .from('activity_log')
+        .select('*, staff:performed_by(name, profile_photo_url)')
+        .eq('customer_id', customerId);
+
+    if (actRes is List) {
+      for (final item in actRes) {
+        final m = Map<String, dynamic>.from(item);
+        m['type'] = 'activity';
+        m['title'] = m['description'] ?? m['action'] ?? 'Activity logged';
+        results.add(m);
+      }
+    }
+  } catch (_) {}
+
+  results.sort((a, b) {
+    final da = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+    final db = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+    return db.compareTo(da);
+  });
+
+  return results;
 });
 
 final customerTasksProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, customerId) async {
@@ -368,11 +401,80 @@ final creatorNameProvider = FutureProvider.autoDispose.family<String?, String?>(
 
 final installationTasksProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, customerId) async {
   final supabase = ref.watch(supabaseClientProvider);
-  final response = await supabase
+  
+  // 1. Fetch existing site installation tasks
+  var response = await supabase
       .from('site_installation_tasks')
       .select()
       .eq('customer_id', customerId);
-  return List<Map<String, dynamic>>.from(response);
+
+  List<Map<String, dynamic>> tasks = List<Map<String, dynamic>>.from(response);
+
+  // 2. Auto-seed default tasks if missing
+  const defaultTaskTypes = ['Structure', 'Wiring', 'Net Metering'];
+  final existingTypes = tasks.map((t) => t['task_type'].toString()).toSet();
+  final missingTypes = defaultTaskTypes.where((t) => !existingTypes.contains(t)).toList();
+
+  if (missingTypes.isNotEmpty) {
+    final seeds = missingTypes.map((type) => {
+      'customer_id': customerId,
+      'task_type': type,
+      'status': 'Not Started',
+    }).toList();
+
+    try {
+      final inserted = await supabase.from('site_installation_tasks').insert(seeds).select();
+      tasks = [...tasks, ...List<Map<String, dynamic>>.from(inserted)];
+    } catch (_) {
+      // Fallback in-memory list if RLS/insert restricted
+      for (final type in missingTypes) {
+        tasks.add({
+          'id': 'temp_$type',
+          'customer_id': customerId,
+          'task_type': type,
+          'status': 'Not Started',
+        });
+      }
+    }
+  }
+
+  // 3. Sync status from tasks table (e.g. if Wireman completed 'Wiring' or Structure Installer completed 'Structure')
+  try {
+    final generalTasks = await supabase
+        .from('tasks')
+        .select('name, status')
+        .eq('customer_id', customerId);
+
+    final generalList = List<Map<String, dynamic>>.from(generalTasks);
+
+    for (final taskRow in tasks) {
+      final type = taskRow['task_type'].toString();
+      // Match against general tasks
+      for (final g in generalList) {
+        final gName = g['name'].toString().toLowerCase();
+        final gStatus = g['status'].toString().toLowerCase();
+
+        if ((type == 'Wiring' && (gName.contains('wiring') || gName.contains('electrical') || gName.contains('wireman'))) ||
+            (type == 'Structure' && (gName.contains('structure') || gName.contains('installer')))) {
+          if (gStatus == 'completed') {
+            taskRow['status'] = 'Completed';
+          } else if (gStatus == 'in_progress' && taskRow['status'] != 'Completed') {
+            taskRow['status'] = 'In Progress';
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Sort tasks in standard order
+  tasks.sort((a, b) {
+    final indexA = defaultTaskTypes.indexOf(a['task_type'].toString());
+    final indexB = defaultTaskTypes.indexOf(b['task_type'].toString());
+    if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
+    return a['task_type'].toString().compareTo(b['task_type'].toString());
+  });
+
+  return tasks;
 });
 
 final villageListProvider = FutureProvider.autoDispose<List<String>>((ref) async {

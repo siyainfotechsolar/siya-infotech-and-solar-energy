@@ -6,9 +6,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io' as io;
 import '../../../core/constants/supabase_constants.dart';
+import '../../../core/services/permission_service.dart';
+import '../../../core/utils/audit_logger.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../../core/notifications/notification_model.dart';
+import '../../../core/widgets/unsaved_changes_scope.dart';
+import '../../../core/utils/mobile_validator.dart';
 
 class AddStaffScreen extends ConsumerStatefulWidget {
   final String? initialName;
@@ -211,16 +215,39 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
         profilePhotoUrl = mainSupabase.storage.from('avatars').getPublicUrl(path);
       }
 
+      final category = StaffCategory.fromRole(_role);
+      final cleanMobile = MobileValidator.normalize(_mobileController.text);
+
       // 3. Insert into staff table
       await mainSupabase.from('staff').insert({
         'id': userId,
         'name': _nameController.text.trim(),
-        'mobile': _mobileController.text.trim(),
+        'mobile': cleanMobile,
         'email': email,
         'role': _role,
+        'category': category,
         'status': _status,
         'profile_photo_url': profilePhotoUrl,
       });
+
+      // 4. Create default permissions for new staff
+      final defaultPerms = StaffPermissions.getDefault(userId, category);
+      final permService = ref.read(permissionServiceProvider);
+      final currentUser = ref.read(currentUserProvider);
+      await permService.saveStaffPermissions(defaultPerms, currentUser?.id ?? userId);
+
+      await AuditLogger.log(
+        supabase: mainSupabase,
+        userId: currentUser?.id,
+        action: 'STAFF_CREATED',
+        module: 'staff',
+        entityId: userId,
+        details: {
+          'name': _nameController.text.trim(),
+          'role': _role,
+          'category': category,
+        },
+      );
 
       try {
         final notificationRepo = ref.read(notificationRepositoryProvider);
@@ -249,10 +276,17 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
     }
   }
 
+  bool get _isDirty =>
+      _nameController.text.isNotEmpty ||
+      _mobileController.text.isNotEmpty ||
+      _emailController.text.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Add Staff')),
+    return UnsavedChangesScope(
+      isDirty: _isDirty,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Add Staff')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -290,13 +324,11 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
                   labelText: 'Mobile Number *',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.phone_outlined),
+                  prefixText: '+91 ',
                 ),
                 keyboardType: TextInputType.phone,
-                validator: (val) {
-                  if (val == null || val.isEmpty) return 'Required';
-                  if (val.length < 10) return 'Enter a valid 10-digit number';
-                  return null;
-                },
+                inputFormatters: MobileValidator.inputFormatters,
+                validator: (val) => MobileValidator.validate(val, required: true),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -371,6 +403,7 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

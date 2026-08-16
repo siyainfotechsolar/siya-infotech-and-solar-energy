@@ -14,6 +14,7 @@ import '../../staff/ui/add_staff_screen.dart';
 import '../../import/ui/import_screen.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../notifications/ui/notifications_screen.dart';
+import '../../../core/widgets/app_tap_widgets.dart';
 
 // ─── SECTION 1: CUSTOMER OVERVIEW PROVIDER ─────────────────────────────────
 final adminCustomerOverviewProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
@@ -913,6 +914,8 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final debouncer = Debouncer();
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -922,7 +925,11 @@ class _KpiCard extends StatelessWidget {
       ),
       color: Colors.white,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          if (debouncer.canExecute()) {
+            onTap();
+          }
+        },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(14),

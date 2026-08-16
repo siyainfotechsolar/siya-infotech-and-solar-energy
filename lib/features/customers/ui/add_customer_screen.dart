@@ -7,6 +7,7 @@ import '../providers/customer_provider.dart';
 import '../../../core/utils/activity_logger.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../../core/notifications/notification_model.dart';
+import '../../../core/utils/mobile_validator.dart';
 
 class AddCustomerScreen extends ConsumerStatefulWidget {
   const AddCustomerScreen({super.key});
@@ -134,11 +135,12 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
       final supabase = ref.read(supabaseClientProvider);
       
       // Duplicate Check: Mobile
-      final duplicateMobile = await supabase
-          .from('customers')
-          .select('*')
-          .eq('mobile', _mobileController.text.trim())
-          .maybeSingle();
+      final cleanMobile = MobileValidator.normalize(_mobileController.text);
+      final duplicateMobile = await MobileValidator.checkDuplicate(
+        client: supabase,
+        table: 'customers',
+        mobile: cleanMobile,
+      );
           
       if (duplicateMobile != null) {
         setState(() => _isLoading = false);
@@ -172,7 +174,7 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
       final insertData = {
         'customer_id': generatedId,
         'name': _nameController.text.trim(),
-        'mobile': _mobileController.text.trim(),
+        'mobile': cleanMobile,
         'consumer_number': consumerNum.isEmpty ? null : consumerNum,
         'village': _villageController.text.trim(),
         'address': _addressController.text.trim(),
@@ -254,13 +256,14 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _mobileController,
-                  decoration: const InputDecoration(labelText: 'Mobile Number *', prefixIcon: Icon(Icons.phone)),
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number *',
+                    prefixIcon: Icon(Icons.phone),
+                    prefixText: '+91 ',
+                  ),
                   keyboardType: TextInputType.phone,
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Required';
-                    if (!RegExp(r'^\d{10}$').hasMatch(val.trim())) return 'Enter a valid 10-digit mobile number';
-                    return null;
-                  },
+                  inputFormatters: MobileValidator.inputFormatters,
+                  validator: (val) => MobileValidator.validate(val, required: true),
                   onChanged: _onFieldChanged,
                 ),
                 const SizedBox(height: 16),

@@ -14,6 +14,8 @@ import '../../../core/utils/activity_logger.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../../core/notifications/notification_model.dart';
 import 'widgets/installation_photos_section.dart';
+import 'widgets/limited_customer_view_sheet.dart';
+import '../../../core/services/permission_service.dart';
 
 class TaskDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> task;
@@ -822,9 +824,26 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                   margin: EdgeInsets.zero,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () {
+                    onTap: () async {
                       if (customer != null) {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: customer)));
+                        final perms = await ref.read(currentUserPermissionsProvider.future);
+                        if (perms.category != StaffCategory.admin) {
+                          if (context.mounted) {
+                            LimitedCustomerViewSheet.show(
+                              context: context,
+                              customerName: customer['name'] ?? '',
+                              mobile: customer['mobile'] ?? '',
+                              address: customer['address'] ?? customer['village'] ?? '',
+                              village: customer['village'],
+                              applicationId: customer['consumer_number'],
+                              roleCategory: perms.category,
+                            );
+                          }
+                        } else {
+                          if (context.mounted) {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: customer)));
+                          }
+                        }
                       }
                     },
                     child: Padding(

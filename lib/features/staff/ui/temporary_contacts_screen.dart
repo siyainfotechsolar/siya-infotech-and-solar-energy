@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/mobile_validator.dart';
 
 class TemporaryContactsScreen extends ConsumerStatefulWidget {
   const TemporaryContactsScreen({super.key});
@@ -132,13 +133,14 @@ class _TemporaryContactsScreenState extends ConsumerState<TemporaryContactsScree
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: mobileController,
-                  decoration: const InputDecoration(labelText: 'Mobile Number *', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number *',
+                    border: OutlineInputBorder(),
+                    prefixText: '+91 ',
+                  ),
                   keyboardType: TextInputType.phone,
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Required';
-                    if (val.trim().length < 10) return 'Enter a valid 10-digit number';
-                    return null;
-                  },
+                  inputFormatters: MobileValidator.inputFormatters,
+                  validator: (val) => MobileValidator.validate(val, required: true),
                 ),
               ],
             ),
@@ -152,7 +154,7 @@ class _TemporaryContactsScreenState extends ConsumerState<TemporaryContactsScree
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   final name = nameController.text.trim();
-                  final mobile = mobileController.text.trim();
+                  final mobile = MobileValidator.normalize(mobileController.text);
                   final messenger = ScaffoldMessenger.of(context);
                   
                   Navigator.pop(context);

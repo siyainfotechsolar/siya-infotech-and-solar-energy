@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../task_file_viewer_screen.dart';
+import '../../../../core/widgets/geo_tag_photo_capture_dialog.dart';
+import '../../../../core/widgets/photo_upload_source_dialog.dart';
+import '../../../../core/utils/activity_logger.dart';
 
 class PhotoCategoryConfig {
   final String typeKey;
@@ -23,13 +24,8 @@ class PhotoCategoryConfig {
 const List<PhotoCategoryConfig> kAllPhotoCategories = [
   PhotoCategoryConfig(typeKey: 'structure', displayName: 'Structure', icon: Icons.grid_view_outlined, group: 'structure'),
   PhotoCategoryConfig(typeKey: 'panel', displayName: 'Panel', icon: Icons.wb_sunny_outlined, group: 'panel'),
-  PhotoCategoryConfig(typeKey: 'dc_wiring', displayName: 'DC Wiring', icon: Icons.cable, group: 'electrical'),
-  PhotoCategoryConfig(typeKey: 'ac_wiring', displayName: 'AC Wiring', icon: Icons.alt_route, group: 'electrical'),
   PhotoCategoryConfig(typeKey: 'inverter', displayName: 'Inverter', icon: Icons.bolt, group: 'electrical'),
-  PhotoCategoryConfig(typeKey: 'earthing', displayName: 'Earthing', icon: Icons.g_translate_outlined, group: 'electrical'),
-  PhotoCategoryConfig(typeKey: 'acdb', displayName: 'ACDB', icon: Icons.developer_board, group: 'electrical'),
-  PhotoCategoryConfig(typeKey: 'dcdb', displayName: 'DCDB', icon: Icons.memory, group: 'electrical'),
-  PhotoCategoryConfig(typeKey: 'meter', displayName: 'Meter', icon: Icons.speed, group: 'electrical'),
+  PhotoCategoryConfig(typeKey: 'electrical', displayName: 'Installation / Electrical Photo', icon: Icons.electrical_services, group: 'electrical'),
   PhotoCategoryConfig(typeKey: 'final_installation', displayName: 'Final Installation', icon: Icons.check_circle_outline, group: 'final'),
   PhotoCategoryConfig(typeKey: 'other', displayName: 'Other', icon: Icons.more_horiz, group: 'final'),
 ];
@@ -94,54 +90,26 @@ class _InstallationPhotosSectionState extends ConsumerState<InstallationPhotosSe
   }
 
   Future<void> _pickAndUploadPhoto(PhotoCategoryConfig category) async {
-    final ImageSource? source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.blue),
-              title: const Text('CAMERA', style: TextStyle(fontWeight: FontWeight.bold)),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.green),
-              title: const Text('GALLERY', style: TextStyle(fontWeight: FontWeight.bold)),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
+    final result = await PhotoUploadSourceDialog.selectAndProcessPhoto(
+      context,
+      categoryTitle: category.displayName,
+      requireGeoTag: category.typeKey == 'geo_tag',
     );
 
-    if (source == null) return;
+    if (result == null) return;
 
     try {
-      XFile? image;
-      try {
-        image = await ImagePicker().pickImage(source: source, imageQuality: 70);
-      } catch (_) {
-        // Fallback file picker for web/Windows compatibility
-        final result = await FilePicker.pickFiles(type: FileType.image, withData: true);
-        if (result != null && result.files.isNotEmpty) {
-          final file = result.files.first;
-          if (file.bytes != null) {
-            image = XFile.fromData(file.bytes!, name: file.name);
-          }
-        }
-      }
-
-      if (image == null) return;
-
-      final bytes = await image.readAsBytes();
+      setState(() => _isLoading = true);
+      final bytes = await result.file.readAsBytes();
       final user = ref.read(currentUserProvider);
+      final profile = ref.read(currentStaffProfileProvider).value;
+      final uploaderName = (profile?['name'] as String?) ?? user?.email ?? 'Staff';
+      final uploaderRole = (profile?['role'] as String?) ?? 'Staff';
+      final staffCategory = (profile?['designation'] as String?) ?? uploaderRole;
       final supabase = ref.read(supabaseClientProvider);
 
-      setState(() => _isLoading = true);
-
-      final safeName = image.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+      final fileName = result.file.path.split('/').last.split('\\').last;
+      final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
       final uploadPath = '${widget.taskId}/${category.typeKey}_${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
       await supabase.storage.from('task_attachments').uploadBinary(
@@ -150,27 +118,158 @@ class _InstallationPhotosSectionState extends ConsumerState<InstallationPhotosSe
         fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
       );
 
-      await supabase.from('task_attachments').insert({
-        'task_id': widget.taskId,
-        'customer_id': widget.customerId,
-        'file_name': image.name,
-        'file_path': uploadPath,
-        'file_type': 'photo',
-        'photo_type': category.typeKey,
-        'file_size': bytes.length,
-        'uploaded_by': user?.id,
-      });
+      try {
+        await supabase.from('task_attachments').insert({
+          'task_id': widget.taskId,
+          'customer_id': widget.customerId,
+          'file_name': safeName,
+          'file_path': uploadPath,
+          'file_type': 'photo',
+          'photo_type': category.typeKey,
+          'photo_category': category.typeKey,
+          'file_size': bytes.length,
+          'uploaded_by': user?.id,
+          'uploaded_by_user_id': user?.id,
+          'uploaded_by_name': uploaderName,
+          'uploaded_by_role': uploaderRole,
+          'uploaded_by_staff_category': staffCategory,
+          'source': result.source,
+          'photo_source': result.source,
+          'gps_source': result.gpsSource,
+          'geo_lat': result.latitude,
+          'geo_long': result.longitude,
+          'geo_accuracy': result.accuracyMeters,
+          'captured_at': result.capturedAt,
+          'uploaded_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      } catch (_) {
+        await supabase.from('task_attachments').insert({
+          'task_id': widget.taskId,
+          'customer_id': widget.customerId,
+          'file_name': safeName,
+          'file_path': uploadPath,
+          'file_type': 'photo',
+          'photo_type': category.typeKey,
+          'file_size': bytes.length,
+          'uploaded_by': user?.id,
+        });
+      }
+
+      // Log Activity Feed
+      await ActivityLogger.log(
+        supabase: supabase,
+        customerId: widget.customerId,
+        action: 'INSTALLATION_PHOTO_UPLOADED',
+        description: '$uploaderName ($uploaderRole) uploaded ${category.displayName} Photo',
+        performedBy: user?.id,
+      );
 
       await _fetchPhotos();
 
       if (mounted) {
+        final gpsMsg = result.hasGps ? '\n📍 Geo-tagged (${result.gpsSource})' : '\n⚠ No GPS';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${category.displayName} photo uploaded successfully!'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text('${category.displayName} photo uploaded by $uploaderName!$gpsMsg'),
+            backgroundColor: result.hasGps ? Colors.green : Colors.blueGrey,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error uploading photo: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _captureGeoTagPhoto(PhotoCategoryConfig category) async {
+    final result = await GeoTagPhotoCaptureDialog.startCapture(
+      context,
+      categoryTitle: category.displayName,
+    );
+
+    if (result == null) return;
+
+    try {
+      setState(() => _isLoading = true);
+      final bytes = await result.file.readAsBytes();
+      final user = ref.read(currentUserProvider);
+      final profile = ref.read(currentStaffProfileProvider).value;
+      final uploaderName = (profile?['name'] as String?) ?? user?.email ?? 'Staff';
+      final uploaderRole = (profile?['role'] as String?) ?? 'Staff';
+      final staffCategory = (profile?['designation'] as String?) ?? uploaderRole;
+      final supabase = ref.read(supabaseClientProvider);
+
+      final safeName = 'geotag_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final uploadPath = '${widget.taskId}/${category.typeKey}_${DateTime.now().millisecondsSinceEpoch}_$safeName';
+
+      await supabase.storage.from('task_attachments').uploadBinary(
+        uploadPath,
+        bytes,
+        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+      );
+
+      try {
+        await supabase.from('task_attachments').insert({
+          'task_id': widget.taskId,
+          'customer_id': widget.customerId,
+          'file_name': safeName,
+          'file_path': uploadPath,
+          'file_type': 'photo',
+          'photo_type': category.typeKey,
+          'photo_category': category.typeKey,
+          'file_size': bytes.length,
+          'uploaded_by': user?.id,
+          'uploaded_by_user_id': user?.id,
+          'uploaded_by_name': uploaderName,
+          'uploaded_by_role': uploaderRole,
+          'uploaded_by_staff_category': staffCategory,
+          'source': 'APP_CAMERA',
+          'photo_source': 'APP_CAMERA',
+          'gps_source': 'CURRENT_DEVICE_GPS',
+          'geo_lat': result.latitude,
+          'geo_long': result.longitude,
+          'geo_accuracy': result.accuracyMeters,
+          'captured_at': result.capturedAt,
+          'uploaded_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      } catch (_) {
+        await supabase.from('task_attachments').insert({
+          'task_id': widget.taskId,
+          'customer_id': widget.customerId,
+          'file_name': safeName,
+          'file_path': uploadPath,
+          'file_type': 'photo',
+          'photo_type': category.typeKey,
+          'file_size': bytes.length,
+          'uploaded_by': user?.id,
+        });
+      }
+
+      // Log Activity Feed
+      await ActivityLogger.log(
+        supabase: supabase,
+        customerId: widget.customerId,
+        action: 'INSTALLATION_PHOTO_UPLOADED',
+        description: '$uploaderName ($uploaderRole) uploaded Geo-Tag ${category.displayName} Photo',
+        performedBy: user?.id,
+      );
+
+      await _fetchPhotos();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📍 Geo-Tag ${category.displayName} Photo Uploaded by $uploaderName!\nLat: ${result.latitude.toStringAsFixed(4)}, Long: ${result.longitude.toStringAsFixed(4)}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error uploading geo-tag photo: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -275,14 +374,32 @@ class _InstallationPhotosSectionState extends ConsumerState<InstallationPhotosSe
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),
                         ),
-                        TextButton.icon(
-                          onPressed: _isLoading ? null : () => _pickAndUploadPhoto(cat),
-                          icon: const Icon(Icons.add_a_photo, size: 16),
-                          label: const Text('+ ADD PHOTO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.blue.shade700,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _isLoading ? null : () => _captureGeoTagPhoto(cat),
+                              icon: const Icon(Icons.location_on, size: 13),
+                              label: const Text('📍 GEO-TAG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                minimumSize: const Size(60, 30),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            TextButton.icon(
+                              onPressed: _isLoading ? null : () => _pickAndUploadPhoto(cat),
+                              icon: const Icon(Icons.add_a_photo, size: 13),
+                              label: const Text('+ ADD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.blue.shade700,
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                minimumSize: const Size(50, 30),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

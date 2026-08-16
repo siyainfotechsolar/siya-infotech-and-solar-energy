@@ -135,22 +135,71 @@ class NotificationRepository {
     String? eventId,
   }) async {
     try {
-      final uniqueEventId = eventId ?? '${notificationType}_${relatedRecordId ?? taskId ?? dispatchId ?? DateTime.now().millisecondsSinceEpoch}_$recipientUserId';
+      final effectiveEntityId = taskId ?? dispatchId ?? relatedRecordId;
+      String entityType;
+      final typeUpper = notificationType.toUpperCase();
+      if (typeUpper.contains('TASK')) {
+        entityType = 'task';
+      } else if (typeUpper.contains('CUSTOMER') ||
+          typeUpper.contains('PAYMENT') ||
+          typeUpper.contains('LOAN') ||
+          typeUpper.contains('RTS') ||
+          typeUpper.contains('SUBSIDY')) {
+        entityType = 'customer';
+      } else if (typeUpper.contains('LEAD')) {
+        entityType = 'lead';
+      } else if (typeUpper.contains('INSTALLATION')) {
+        entityType = 'installation';
+      } else if (typeUpper.contains('MATERIAL') && !typeUpper.contains('DELIVERY')) {
+        entityType = 'material';
+      } else if (typeUpper.contains('DELIVERY') || typeUpper.contains('DISPATCH')) {
+        entityType = 'delivery';
+      } else if (typeUpper.contains('STAFF')) {
+        entityType = 'staff';
+      } else if (typeUpper.contains('UPDATE')) {
+        entityType = 'app_update';
+      } else {
+        entityType = 'system';
+      }
 
-      await _supabase.functions.invoke(
-        'send-notification',
-        body: {
+      final uniqueEventId = eventId ??
+          '${notificationType}_${effectiveEntityId ?? DateTime.now().millisecondsSinceEpoch}_$recipientUserId';
+
+      try {
+        await _supabase.from('notifications').insert({
           'recipient_user_id': recipientUserId,
+          'user_id': recipientUserId,
           'notification_type': notificationType,
+          'entity_type': entityType,
+          'entity_id': effectiveEntityId,
           'title': title,
           'message': message,
-          if (relatedRecordId != null) 'related_record_id': relatedRecordId,
-          if (taskId != null) 'task_id': taskId,
-          if (dispatchId != null) 'dispatch_id': dispatchId,
-          if (metadata != null) 'metadata': metadata,
+          'related_record_id': relatedRecordId,
+          'task_id': taskId,
+          'dispatch_id': dispatchId,
+          'metadata': metadata,
           'event_id': uniqueEventId,
-        },
-      );
+          'is_read': false,
+        });
+      } catch (dbErr) {
+        // Fallback to Edge function if direct DB insert fails
+        await _supabase.functions.invoke(
+          'send-notification',
+          body: {
+            'recipient_user_id': recipientUserId,
+            'notification_type': notificationType,
+            'entity_type': entityType,
+            'entity_id': effectiveEntityId,
+            'title': title,
+            'message': message,
+            if (relatedRecordId != null) 'related_record_id': relatedRecordId,
+            if (taskId != null) 'task_id': taskId,
+            if (dispatchId != null) 'dispatch_id': dispatchId,
+            if (metadata != null) 'metadata': metadata,
+            'event_id': uniqueEventId,
+          },
+        );
+      }
       debugPrint('[NotificationRepo] Notification sent: $notificationType → $recipientUserId');
     } catch (e) {
       // Notification failure must NOT break core app functionality

@@ -7,6 +7,8 @@ import '../../staff/ui/delivery_details_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../notifications/ui/notifications_screen.dart';
+import '../../../core/widgets/app_tap_widgets.dart';
+import '../../../core/services/permission_service.dart';
 
 // Provider for staff dashboard stats
 final staffDashboardStatsProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
@@ -236,10 +238,59 @@ class StaffHomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
 
-                // Grid of 4 Dashboard Stats Cards
+                // Grid of Dashboard Stats Cards
                 Builder(
                   builder: (context) {
                     final theme = Theme.of(context);
+                    final permsAsync = ref.watch(currentUserPermissionsProvider);
+                    final canViewCustomers = permsAsync.value?.canView(AppModule.customers) ?? false;
+
+                    if (!canViewCustomers) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DashboardCard(
+                                  title: 'MY TASKS',
+                                  count: stats['my_tasks'] ?? 0,
+                                  icon: Icons.assignment_outlined,
+                                  color: theme.colorScheme.primary,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _DashboardCard(
+                                  title: 'PENDING TASKS',
+                                  count: stats['pending_tasks'] ?? 0,
+                                  icon: Icons.hourglass_empty_outlined,
+                                  color: Colors.orange,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DashboardCard(
+                                  title: 'COMPLETED TASKS',
+                                  count: stats['completed_tasks'] ?? 0,
+                                  icon: Icons.task_alt_outlined,
+                                  color: Colors.green,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 1))),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(child: SizedBox.shrink()),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+
                     return Column(
                       children: [
                         Row(
@@ -293,19 +344,21 @@ class StaffHomeScreen extends ConsumerWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 24),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final permsAsync = ref.watch(currentUserPermissionsProvider);
+                    final canViewCustomers = permsAsync.value?.canView(AppModule.customers) ?? false;
+                    if (!canViewCustomers) return const SizedBox.shrink();
 
-                const Text(
-                  'CUSTOMER AGE OVERVIEW',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-                ),
-                const SizedBox(height: 12),
-
-                // Grid of 3 Customer Age Cards
-                Builder(
-                  builder: (context) {
                     return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const SizedBox(height: 24),
+                        const Text(
+                          'CUSTOMER AGE OVERVIEW',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+                        ),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
@@ -432,75 +485,90 @@ class StaffHomeScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   
                   // Assigned Tasks Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Assigned Tasks',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  InkWell(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Assigned Tasks',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${stats['my_tasks'] ?? 0}',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.primary),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${stats['my_tasks'] ?? 0}',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.primary),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 10),
                   
                   // Pending Sub-Row
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Pending',
-                              style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '${stats['pending_tasks'] ?? 0}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
-                        ),
-                      ],
+                  InkWell(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16.0, top: 4, bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Pending',
+                                style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '${stats['pending_tasks'] ?? 0}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
 
                   // Completed Sub-Row
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Completed',
-                              style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '${stats['completed_tasks'] ?? 0}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
-                        ),
-                      ],
+                  InkWell(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 1))),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16.0, top: 4, bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Completed',
+                                style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '${stats['completed_tasks'] ?? 0}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -508,18 +576,25 @@ class StaffHomeScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
 
                   // Assigned Sites Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Assigned Sites',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  InkWell(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen())),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Assigned Sites',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${stats['my_customers'] ?? 0}',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.secondary),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${stats['my_customers'] ?? 0}',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.secondary),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -540,18 +615,30 @@ class StaffHomeScreen extends ConsumerWidget {
               elevation: 2,
             ),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.location_on, size: 20),
-            label: const Text('MY SITES', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5)),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen())),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.secondary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-            ),
+          Consumer(
+            builder: (context, ref, child) {
+              final permsAsync = ref.watch(currentUserPermissionsProvider);
+              final canViewCustomers = permsAsync.value?.canView(AppModule.customers) ?? false;
+              if (!canViewCustomers) return const SizedBox.shrink();
+
+              return Column(
+                children: [
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.location_on, size: 20),
+                    label: const Text('MY SITES', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5)),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen())),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -576,15 +663,21 @@ class _DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final debouncer = Debouncer();
+
     return Card(
       elevation: 2,
-      shadowColor: color.withOpacity(0.15),
+      shadowColor: color.withValues(alpha: 0.15),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: color.withOpacity(0.2), width: 1),
+        side: BorderSide(color: color.withValues(alpha: 0.2), width: 1),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          if (debouncer.canExecute()) {
+            onTap();
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
@@ -593,8 +686,8 @@ class _DashboardCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                color.withOpacity(0.06),
-                color.withOpacity(0.01),
+                color.withValues(alpha: 0.06),
+                color.withValues(alpha: 0.01),
               ],
             ),
           ),
@@ -876,28 +969,40 @@ class _DeliveryStaffDashboardWidgetState extends ConsumerState<_DeliveryStaffDas
     );
   }
 
-  Widget _buildStatCard(String label, int count, Color color) {
+  Widget _buildStatCard(String label, int count, Color color, {VoidCallback? onTap}) {
+    final debouncer = Debouncer();
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: color.withOpacity(0.2)),
+        side: BorderSide(color: color.withValues(alpha: 0.2)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Column(
-          children: [
-            Text(
-              '$count',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
-            ),
-          ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap == null
+            ? null
+            : () {
+                if (debouncer.canExecute()) {
+                  onTap();
+                }
+              },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Column(
+            children: [
+              Text(
+                '$count',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -9,6 +9,7 @@ import '../../../core/utils/stage_config.dart';
 import '../providers/customer_provider.dart';
 import 'add_customer_screen.dart';
 import 'customer_details_screen.dart';
+import '../../leads/ui/add_lead_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/widgets/global_loading_overlay.dart';
 
@@ -84,8 +85,8 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
   }
 
   String _statusLabel(String s, String prefix) {
-    if (s == 'Completed') return '$prefix ✓';
-    if (s == 'In Progress') return '$prefix 50%';
+    if (s == 'Completed' || s == '100%') return '$prefix 100%';
+    if (s == 'In Progress' || s == '50%') return '$prefix 50%';
     return '$prefix 0%';
   }
 
@@ -351,7 +352,7 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                             onPressed: _exportCustomers,
                           ),
                           TextButton.icon(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCustomerScreen())),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddLeadScreen())),
                             icon: const Icon(Icons.add, color: Colors.blue),
                             label: const Text('NEW', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                           ),
@@ -449,10 +450,32 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                       final priority = _isPriority(c['application_date']);
 
                       // Details for Sub-stages display if Stage is Installation
-                      final tasks = c['site_installation_tasks'] as List? ?? [];
-                      final structure = tasks.firstWhere((t) => t['task_type'] == 'Structure Installation', orElse: () => null)?['status'] ?? 'Not Started';
-                      final panel = tasks.firstWhere((t) => t['task_type'] == 'Panel Uploading', orElse: () => null)?['status'] ?? 'Not Started';
-                      final wiring = tasks.firstWhere((t) => t['task_type'] == 'Wiring', orElse: () => null)?['status'] ?? 'Not Started';
+                      final tasks = (c['site_installation_tasks'] as List?) ?? [];
+                      final genTasks = (c['tasks'] as List?) ?? [];
+
+                      String getSubStageStatus(String key) {
+                        for (var t in tasks) {
+                          final type = (t['task_type'] ?? '').toString().toLowerCase();
+                          final stat = (t['status'] ?? '').toString();
+                          if (type.contains(key.toLowerCase())) {
+                            if (stat.toLowerCase() == 'completed' || stat == '100%') return 'Completed';
+                            if (stat.toLowerCase() == 'in progress' || stat == '50%') return 'In Progress';
+                          }
+                        }
+                        for (var g in genTasks) {
+                          final name = (g['name'] ?? '').toString().toLowerCase();
+                          final stat = (g['status'] ?? '').toString().toLowerCase();
+                          if (name.contains(key.toLowerCase()) || (key == 'Wiring' && (name.contains('electrical') || name.contains('wireman')))) {
+                            if (stat == 'completed') return 'Completed';
+                            if (stat == 'in_progress') return 'In Progress';
+                          }
+                        }
+                        return 'Not Started';
+                      }
+
+                      final structure = getSubStageStatus('Structure');
+                      final panel = getSubStageStatus('Panel');
+                      final wiring = getSubStageStatus('Wiring');
 
                       return Card(
                         elevation: 1,

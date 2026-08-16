@@ -10,15 +10,20 @@ class ActivityLogger {
     required String? performedBy,
   }) async {
     try {
+      final user = supabase.auth.currentUser;
+      final effectiveUserId = (performedBy != null && performedBy.isNotEmpty)
+          ? performedBy
+          : user?.id;
+
       await supabase.from('activity_log').insert({
-        'customer_id': customerId,
+        'customer_id': (customerId != null && customerId.isNotEmpty) ? customerId : null,
         'action': action,
         'description': description,
-        'performed_by': performedBy,
+        'performed_by': effectiveUserId,
       });
-      debugPrint('Logged activity: $description');
+      debugPrint('[ActivityLogger] Logged activity: $description (User: $effectiveUserId)');
     } catch (e) {
-      debugPrint('ActivityLogger error: $e');
+      debugPrint('[ActivityLogger] Error logging activity: $e');
     }
   }
 }

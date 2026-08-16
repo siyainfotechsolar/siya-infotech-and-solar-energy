@@ -12,6 +12,7 @@ import '../../../core/utils/activity_logger.dart';
 import '../../../core/services/global_loading_service.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/notifications/notification_state.dart';
+import '../../../core/widgets/unsaved_changes_scope.dart';
 
 class AddTaskScreen extends ConsumerStatefulWidget {
   final String? initialCustomerId;
@@ -413,21 +414,29 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     }
   }
 
+  bool get _isDirty =>
+      (_taskName != null && _taskName!.isNotEmpty) ||
+      _descController.text.isNotEmpty ||
+      _selectedStaffIds.isNotEmpty ||
+      _attachments.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create Task')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return UnsavedChangesScope(
+      isDirty: _isDirty,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('CREATE / ASSIGN TASK')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               TaskNameSearchField(
                 onTaskNameSelected: (name) => setState(() => _taskName = name),
               ),
@@ -561,6 +570,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

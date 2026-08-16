@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/services/permission_service.dart';
+
 
 class TaskListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   @override
@@ -9,14 +11,16 @@ class TaskListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     
     if (user == null) return [];
 
-    final role = await ref.watch(userRoleProvider.future);
+    final perms = await ref.watch(currentUserPermissionsProvider.future);
     
-    if (role == 'admin') {
+    if (perms.category == StaffCategory.admin ||
+        perms.dataAccessLevel == DataAccessLevel.allData ||
+        perms.dataAccessLevel == DataAccessLevel.teamData) {
       final response = await supabase
           .from('tasks')
           .select('*, customers(name, customer_id), creator:staff!created_by(name), task_staff(staff(name))')
           .order('created_at', ascending: false)
-          .limit(500); // Raised from 100 — prevents silent data loss as task count grows
+          .limit(500);
       return List<Map<String, dynamic>>.from(response);
     } else {
       final response = await supabase
@@ -24,7 +28,7 @@ class TaskListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
           .select('*, customers(name, customer_id), creator:staff!created_by(name), task_staff!inner(staff_id), task_staff_list:task_staff(staff(name))')
           .eq('task_staff.staff_id', user.id)
           .order('created_at', ascending: false)
-          .limit(500); // Raised from 100 — prevents silent data loss as task count grows
+          .limit(500);
       return List<Map<String, dynamic>>.from(response);
     }
   }
