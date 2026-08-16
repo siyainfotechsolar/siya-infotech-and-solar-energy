@@ -6,6 +6,7 @@ import '../../../core/utils/date_utils.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/material_provider.dart';
 import 'edit_material_sheet.dart';
+import '../../../core/notifications/notification_state.dart';
 
 // Provider to fetch dispatches for a customer
 final customerDispatchesProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, customerId) async {
@@ -173,12 +174,14 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
                             'status': 'Pending',
                           });
 
-                          // Create Notification for the Delivery Staff
-                          await supabase.from('notifications').insert({
-                            'user_id': staffId,
-                            'title': '🔔 New Delivery Assigned',
-                            'message': 'Customer:\n${widget.customerName}\n\nSite:\n$village\n\nMaterial:\n$selectedMaterial × $qty',
-                          });
+                          // Create Notification for the Delivery Staff via Edge Function (inserts DB + sends FCM push)
+                          final notificationRepo = ref.read(notificationRepositoryProvider);
+                          await notificationRepo.sendNotification(
+                            recipientUserId: staffId,
+                            notificationType: 'NEW_DISPATCH_ASSIGNED',
+                            title: '🔔 New Delivery Assigned',
+                            message: 'Customer:\n${widget.customerName}\n\nSite:\n$village\n\nMaterial:\n$selectedMaterial × $qty',
+                          );
 
                           _refreshAll();
 
