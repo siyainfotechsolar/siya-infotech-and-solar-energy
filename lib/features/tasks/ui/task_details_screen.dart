@@ -12,6 +12,7 @@ import '../../../core/services/realtime_service.dart';
 import '../../customers/ui/customer_details_screen.dart';
 import '../../../core/utils/activity_logger.dart';
 import '../../../core/notifications/notification_state.dart';
+import '../../../core/notifications/notification_model.dart';
 import 'widgets/installation_photos_section.dart';
 
 class TaskDetailsScreen extends ConsumerStatefulWidget {
