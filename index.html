@@ -80,7 +80,7 @@
           <span class="step-num">2</span>
           <div>
             <strong>Open Downloaded File</strong>
-            <p>Open your browser downloads or Files app and tap <code>Siya-Solar-Staff-v1.0.6.apk</code>.</p>
+            <p>Open your browser downloads or Files app and tap <code>Siya-Solar-Staff-v1.0.7.apk</code>.</p>
           </div>
         </li>
         <li>
@@ -104,12 +104,11 @@
     <section class="card">
       <h2>📋 Release Notes</h2>
       <ul class="changelog-list" id="changelogList">
-        <li>v1.0.6: Official release with Audit Performance Fixes, Named Routing, and Dedicated Installer Dashboard</li>
-        <li>Parallelized 23 dashboard queries with Future.wait() for fast 1-2s loading times</li>
-        <li>Added Field Installer Dashboard with task statistics, unread badges, and task navigation</li>
-        <li>Added GoRouter named routes (/tasks, /customers, /notifications) for push notification deep-linking</li>
-        <li>Raised task list query limit from 100 to 500 to prevent data truncation</li>
-        <li>Fixed JVM heap & Gradle cache allocation settings for optimal build stability</li>
+        <li>v1.0.7: Official release with Push & In-App Notification Pipeline, FCM HTTP v1 Migration & RLS Security Fixes</li>
+        <li>Migrated FCM backend push delivery from deprecated legacy API to Google FCM HTTP v1 API</li>
+        <li>Fixed user_devices FCM token upsert table constraints for persistent device registration</li>
+        <li>Fixed notification_type casing mismatch (UPPER_CASE) for correct deep-link navigation</li>
+        <li>Added web platform guards (kIsWeb) for Firebase and Platform.isAndroid</li>
       </ul>
     </section>
 
@@ -133,6 +132,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=1.0.3"></script>
+  <script src="app.js?v=1.0.7"></script>
 </body>
 </html>
