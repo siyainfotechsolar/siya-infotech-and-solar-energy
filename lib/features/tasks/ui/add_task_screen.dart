@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'widgets/customer_search_field.dart';
 import 'widgets/task_name_search_field.dart';
+import 'task_details_screen.dart';
+import '../providers/task_provider.dart';
 import '../../../core/utils/activity_logger.dart';
 import '../../../core/services/global_loading_service.dart';
 import '../../../core/localization/app_strings.dart';
@@ -104,7 +106,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     try {
       final supabase = ref.read(supabaseClientProvider);
       
-      final staffRes = await supabase.from('staff').select('id, name, role').eq('status', 'active');
+      final staffRes = await supabase.from('staff').select('id, name, role').eq('status', 'active').order('name');
       
       if (mounted) {
         setState(() {
@@ -120,26 +122,186 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     }
   }
 
+  String _formatRoleTag(String? role) {
+    switch (role) {
+      case 'admin': return 'Admin';
+      case 'office_staff': return 'Office Staff';
+      case 'installer': return 'Structure Installer';
+      case 'wireman': return 'Wireman';
+      case 'supervisor': return 'Supervisor';
+      case 'delivery_staff': return 'Delivery Staff';
+      default: return role ?? 'Staff';
+    }
+  }
+
+  bool _isRecommendedStaff(String? taskName, String? role) {
+    if (taskName == null || taskName.trim().isEmpty) return false;
+    final nameLower = taskName.toLowerCase();
+    final roleLower = (role ?? '').toLowerCase();
+
+    if (nameLower.contains('structure') || nameLower.contains('panel')) {
+      return roleLower == 'installer';
+    }
+    if (nameLower.contains('wiring') || nameLower.contains('dc') || nameLower.contains('ac') || 
+        nameLower.contains('inverter') || nameLower.contains('earthing') || nameLower.contains('meter') || nameLower.contains('electrical')) {
+      return roleLower == 'wireman';
+    }
+    if (nameLower.contains('delivery')) {
+      return roleLower == 'delivery_staff';
+    }
+    return false;
+  }
+
   Future<void> _saveTask() async {
     if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
+
+    if (_taskName == null || _taskName!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select or enter a task name')));
+      return;
+    }
     if (_selectedCustomerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a customer')));
       return;
     }
     if (_selectedStaffIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please assign at least one staff member')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ASSIGN STAFF: Please select at least one staff member before creating this task.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
     setState(() => _isSaving = true);
 
+    final supabase = ref.read(supabaseClientProvider);
+    final user = ref.read(currentUserProvider);
+
     try {
+      // 1. Check for ACTIVE duplicate task for the same customer
+      final activeTasksRes = await supabase
+          .from('tasks')
+          .select('*, customers(name, customer_id)')
+          .eq('customer_id', _selectedCustomerId!)
+          .ilike('name', _taskName!.trim())
+          .inFilter('status', ['pending', 'in_progress', 'not_completed']);
+
+      final activeList = List<Map<String, dynamic>>.from(activeTasksRes);
+
+      if (activeList.isNotEmpty) {
+        setState(() => _isSaving = false);
+        if (!mounted) return;
+
+        final existingTask = activeList.first;
+        final statusLabel = (existingTask['status'] as String? ?? 'active').replaceAll('_', ' ').toUpperCase();
+
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('TASK ALREADY EXISTS', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Text(
+              'This task ("${_taskName!.trim()}") has already been created for this customer and is currently in status "$statusLabel".\n\nTo prevent duplicate tasks, please view or update the existing task.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('CANCEL'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(dialogCtx);
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: existingTask)),
+                  );
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                child: const Text('VIEW EXISTING TASK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      // 2. Check if task was PREVIOUSLY COMPLETED (Repeat task confirmation)
+      final completedTasksRes = await supabase
+          .from('tasks')
+          .select('id, created_at, completed_at')
+          .eq('customer_id', _selectedCustomerId!)
+          .ilike('name', _taskName!.trim())
+          .eq('status', 'completed');
+
+      final completedList = List<Map<String, dynamic>>.from(completedTasksRes);
+
+      String? repeatReason;
+      if (completedList.isNotEmpty) {
+        setState(() => _isSaving = false);
+        if (!mounted) return;
+
+        final reasonController = TextEditingController();
+        final formKey = GlobalKey<FormState>();
+
+        final confirmRepeat = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('TASK PREVIOUSLY COMPLETED', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('This task was previously completed for this customer.'),
+                  const SizedBox(height: 12),
+                  const Text('Please provide a reason to create a repeat task *:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: reasonController,
+                    decoration: const InputDecoration(labelText: 'Reason for Repeat Task', border: OutlineInputBorder()),
+                    validator: (val) => val == null || val.trim().isEmpty ? 'Reason is required' : null,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('CANCEL')),
+              ElevatedButton(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    repeatReason = reasonController.text.trim();
+                    Navigator.pop(dialogCtx, true);
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                child: const Text('CREATE REPEAT TASK'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmRepeat != true || repeatReason == null) {
+          return;
+        }
+
+        setState(() => _isSaving = true);
+      }
+
+      // 3. Create single Task record
       await ref.read(globalLoadingProvider.notifier).runWithLoading(
         () async {
-          final supabase = ref.read(supabaseClientProvider);
-          final user = ref.read(currentUserProvider);
-
           if (_taskName != null) {
             try {
               await supabase.from('task_types').insert({'name': _taskName!.trim()});
@@ -149,14 +311,16 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
           final taskResp = await supabase.from('tasks').insert({
             'name': _taskName!.trim(),
             'customer_id': _selectedCustomerId,
-            'description': _descController.text.trim(),
+            'description': repeatReason != null 
+                ? '${_descController.text.trim()}\n[Repeat Task Reason: $repeatReason]' 
+                : _descController.text.trim(),
             'priority': _priority,
             'created_by': user?.id,
           }).select('id').single();
 
           final taskId = taskResp['id'];
 
-          // Create multi-staff mapping
+          // Create multi-staff mapping on the ONE task ID
           final staffMappings = _selectedStaffIds.map((staffId) => {
             'task_id': taskId,
             'staff_id': staffId,
@@ -164,7 +328,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
           await supabase.from('task_staff').insert(staffMappings);
 
-          // Get creator admin name
+          // Admin Name
           String adminName = 'Admin';
           if (user != null) {
             try {
@@ -173,11 +337,10 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
             } catch (_) {}
           }
 
-          // Notify assigned staff members
+          // Send FCM Notification ONCE to assigned staff
+          final notificationRepo = ref.read(notificationRepositoryProvider);
           for (final staffId in _selectedStaffIds) {
             try {
-              // Send notification via Edge Function (inserts DB row + sends FCM push)
-              final notificationRepo = ref.read(notificationRepositoryProvider);
               await notificationRepo.sendNotification(
                 recipientUserId: staffId,
                 notificationType: 'TASK_ASSIGNED',
@@ -190,8 +353,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
             }
           }
 
-
-          // Upload attachments
+          // Upload attachments if any
           for (final att in _attachments) {
             final bytes = att['bytes'] as Uint8List;
             final name = att['name'] as String;
@@ -204,14 +366,12 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
             await supabase.storage.from('task_attachments').uploadBinary(
               filePath,
               bytes,
-              fileOptions: const FileOptions(
-                cacheControl: '3600',
-                upsert: true,
-              ),
+              fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
             );
 
             await supabase.from('task_attachments').insert({
               'task_id': taskId,
+              'customer_id': _selectedCustomerId,
               'file_name': name,
               'file_path': filePath,
               'file_type': type,
@@ -222,20 +382,22 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
           if (user != null) {
             try {
-              final staffNameRes = await supabase.from('staff').select('name').eq('id', user.id).maybeSingle();
-              final staffName = staffNameRes?['name'] ?? 'Staff member';
               await ActivityLogger.log(
                 supabase: supabase,
                 customerId: _selectedCustomerId,
                 action: 'task_created',
-                description: '$staffName added task ${_taskName!.trim()}',
+                description: '$adminName added task ${_taskName!.trim()}',
                 performedBy: user.id,
               );
             } catch (_) {}
           }
 
+          ref.invalidate(taskListProvider);
+
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task assigned successfully!')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Task assigned successfully!'), backgroundColor: Colors.green),
+            );
             Navigator.pop(context);
           }
         },
@@ -292,16 +454,33 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                 onChanged: (val) => setState(() => _priority = val!),
               ),
               const SizedBox(height: 24),
-              const Text('Assign Staff *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  const Text('Assign Staff *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  if (_selectedStaffIds.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Text('(Required)', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8.0,
+                runSpacing: 8.0,
                 children: _staff.map((s) {
                   final id = s['id'] as String;
+                  final roleTag = _formatRoleTag(s['role']);
                   final isSelected = _selectedStaffIds.contains(id);
+                  final isRecommended = _isRecommendedStaff(_taskName, s['role']);
+
                   return FilterChip(
-                    label: Text(s['name']),
+                    avatar: isRecommended ? const Icon(Icons.star, size: 14, color: Colors.amber) : null,
+                    label: Text('${s['name']} ($roleTag)'),
                     selected: isSelected,
+                    selectedColor: Colors.blue.shade100,
+                    checkmarkColor: Colors.blue,
+                    side: isRecommended ? const BorderSide(color: Colors.amber, width: 1.5) : null,
                     onSelected: (selected) {
                       setState(() {
                         if (selected) {
@@ -362,9 +541,21 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _isSaving ? null : _saveTask,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: _isSaving ? Colors.grey : Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
                 child: _isSaving 
-                  ? const CircularProgressIndicator() 
-                  : const Text('ASSIGN TASK'),
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                        SizedBox(width: 12),
+                        Text('Creating Task...'),
+                      ],
+                    )
+                  : const Text('ASSIGN TASK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ],
           ),

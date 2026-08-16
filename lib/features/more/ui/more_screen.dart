@@ -11,6 +11,7 @@ import '../../staff/ui/staff_list_screen.dart';
 import '../../staff/ui/staff_directory_screen.dart';
 import '../../import/ui/import_screen.dart';
 import '../../customers/ui/customer_merge_screen.dart';
+import '../../tasks/ui/unassigned_tasks_screen.dart';
 
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
@@ -102,6 +103,13 @@ class MoreScreen extends ConsumerWidget {
                       title: const Text('Staff Management'),
                       onTap: () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const StaffListScreen()));
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.assignment_ind_outlined),
+                      title: const Text('Unassigned Tasks'),
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const UnassignedTasksScreen()));
                       },
                     ),
                     ListTile(
