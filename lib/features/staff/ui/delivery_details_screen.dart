@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/notifications/notification_state.dart';
 
 class DeliveryDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> dispatch;
@@ -115,20 +116,21 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', dispatchId);
 
-      // 3. Notify Admin users
+      // 3. Notify Admin users via Edge Function (bypasses RLS & triggers FCM push)
       final staffNameRes = await supabase.from('staff').select('name').eq('id', user?.id ?? '').maybeSingle();
       final staffName = staffNameRes?['name'] ?? 'Delivery Staff';
 
-      // Select active admins to notify
       final adminsResponse = await supabase.from('staff').select('id').eq('role', 'admin').eq('status', 'active');
       final adminsList = List<Map<String, dynamic>>.from(adminsResponse);
 
+      final notificationRepo = ref.read(notificationRepositoryProvider);
       for (var admin in adminsList) {
-        await supabase.from('notifications').insert({
-          'user_id': admin['id'],
-          'title': 'Material Delivered',
-          'message': 'Customer:\n$customerName\n\nDelivery Staff:\n$staffName',
-        });
+        await notificationRepo.sendNotification(
+          recipientUserId: admin['id'],
+          notificationType: 'MATERIAL_DELIVERED',
+          title: '✅ Material Delivered',
+          message: 'Customer:\n$customerName\n\nDelivery Staff:\n$staffName\n\nMaterial:\n${widget.dispatch['material_name']} × ${widget.dispatch['quantity']}',
+        );
       }
 
       setState(() {
