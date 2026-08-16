@@ -1,19 +1,18 @@
 {
   "appName": "Siya Solar Staff",
   "subtitle": "Official Android Application for Staff & Field Operations",
-  "version": "1.0.11",
-  "versionCode": 12,
+  "version": "1.0.12",
+  "versionCode": 13,
   "releaseDate": "2026-08-17",
   "minAndroidVersion": "Android 6.0 (API level 23)+",
-  "apkSize": "61.1 MB",
-  "apkFile": "releases/Siya-Solar-Staff-v1.0.11.apk",
+  "apkSize": "76.5 MB",
+  "apkFile": "releases/Siya-Solar-Staff-v1.0.12.apk",
   "latestApk": "releases/latest/Siya-Solar-Staff-latest.apk",
   "changelog": [
-    "v1.0.11: Build Audit, Code Quality Pass, Stable Release",
-    "Full static analysis audit — 0 compilation errors confirmed",
-    "Clean release APK build verified (61.1 MB)",
-    "Installation photo upload system with geo-tag support stable",
-    "Photo uploader identity tracking and activity logging confirmed",
-    "Staff permission enforcement validated across all roles"
+    "v1.0.12: Barcode Scanner Update & Installation Data Sync Fix",
+    "Integrated mobile_scanner for fast, reliable live-camera barcode scanning",
+    "Fixed missing Installation Summary data (System Capacity, Serials, Geo-Tags) syncing to cloud",
+    "Added manual fallback and torch functionality for the scanner",
+    "Duplicate barcode validation to prevent scanning the same panel twice"
   ]
 }
