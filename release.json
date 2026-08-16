@@ -1,19 +1,18 @@
 {
   "appName": "Siya Solar Staff",
   "subtitle": "Official Android Application for Staff & Field Operations",
-  "version": "1.0.6",
-  "versionCode": 7,
+  "version": "1.0.7",
+  "versionCode": 8,
   "releaseDate": "2026-08-16",
   "minAndroidVersion": "Android 6.0 (API level 23)+",
-  "apkSize": "59.5 MB",
-  "apkFile": "releases/Siya-Solar-Staff-v1.0.6.apk",
+  "apkSize": "59.4 MB",
+  "apkFile": "releases/Siya-Solar-Staff-v1.0.7.apk",
   "latestApk": "releases/latest/Siya-Solar-Staff-latest.apk",
   "changelog": [
-    "v1.0.6: Official release with Audit Performance Fixes, Named Routing, and Dedicated Installer Dashboard",
-    "Parallelized 23 dashboard queries with Future.wait() for fast 1-2s loading times",
-    "Added Field Installer Dashboard with task statistics, unread badges, and task navigation",
-    "Added GoRouter named routes (/tasks, /customers, /notifications) for push notification deep-linking",
-    "Raised task list query limit from 100 to 500 to prevent data truncation",
-    "Fixed JVM heap & Gradle cache allocation settings for optimal build stability"
+    "v1.0.7: Official release with Push & In-App Notification Pipeline, FCM HTTP v1 Migration & RLS Security Fixes",
+    "Migrated FCM backend push delivery from deprecated legacy API to Google FCM HTTP v1 API",
+    "Fixed user_devices FCM token upsert table constraints for persistent device registration",
+    "Fixed notification_type casing mismatch (UPPER_CASE) for correct deep-link navigation",
+    "Added web platform guards (kIsWeb) for Firebase and Platform.isAndroid"
   ]
 }
