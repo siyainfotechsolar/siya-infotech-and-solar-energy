@@ -319,7 +319,8 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
                 items: const [
                   DropdownMenuItem(value: 'admin', child: Text('Admin')),
                   DropdownMenuItem(value: 'office_staff', child: Text('Office Staff')),
-                  DropdownMenuItem(value: 'installer', child: Text('Installer')),
+                  DropdownMenuItem(value: 'installer', child: Text('Structure Installer')),
+                  DropdownMenuItem(value: 'wireman', child: Text('Wireman / Electrical Installer')),
                   DropdownMenuItem(value: 'supervisor', child: Text('Supervisor')),
                   DropdownMenuItem(value: 'delivery_staff', child: Text('Delivery Staff')),
                 ],

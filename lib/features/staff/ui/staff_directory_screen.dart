@@ -115,7 +115,9 @@ class _StaffDirectoryScreenState extends ConsumerState<StaffDirectoryScreen> {
       case 'office_staff':
         return 'Office Staff';
       case 'installer':
-        return 'Installer';
+        return 'Structure Installer';
+      case 'wireman':
+        return 'Wireman / Electrical Installer';
       case 'supervisor':
         return 'Supervisor';
       case 'delivery_staff':

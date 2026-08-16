@@ -266,7 +266,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
             if (role == 'admin') return const AdminDashboardScreen();
             if (role == 'office_staff' || role == 'delivery_staff' || role == 'supervisor') return const StaffDashboardScreen();
-            if (role == 'installer') return const InstallerDashboardScreen();
+            if (role == 'installer' || role == 'wireman') return const InstallerDashboardScreen();
             
             // Unknown role — show pending activation
             return const Scaffold(body: Center(child: Text('Account pending activation...')));

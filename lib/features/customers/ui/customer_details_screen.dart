@@ -15,6 +15,7 @@ import '../../materials/ui/site_material_screen.dart';
 import '../providers/customer_provider.dart';
 import '../../../core/services/realtime_service.dart';
 import '../../../core/utils/activity_logger.dart';
+import 'widgets/customer_admin_photos_widget.dart';
 
 
 
@@ -580,6 +581,10 @@ class _CustomerDetailsScreenState extends ConsumerState<CustomerDetailsScreen> {
 
             const SizedBox(height: 24),
             
+            // --- Customer Installation & Electrical Photos ---
+            CustomerAdminPhotosWidget(customerId: _customerData['id']),
+            const SizedBox(height: 24),
+
             // --- Stage History Section ---
             const Text('Stage History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),

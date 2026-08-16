@@ -12,6 +12,7 @@ import '../../../core/services/realtime_service.dart';
 import '../../customers/ui/customer_details_screen.dart';
 import '../../../core/utils/activity_logger.dart';
 import '../../../core/notifications/notification_state.dart';
+import 'widgets/installation_photos_section.dart';
 
 class TaskDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> task;
@@ -1033,6 +1034,16 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // 6.6 Installation Photos Section
+                if (task['id'] != null && task['customer_id'] != null) ...[
+                  InstallationPhotosSection(
+                    taskId: task['id'],
+                    customerId: task['customer_id'],
+                    userRole: userRole,
+                  ),
+                  const SizedBox(height: 20),
+                ],
 
                 // 7. Completion card
                 if (status == 'completed') ...[
