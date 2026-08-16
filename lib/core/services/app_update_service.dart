@@ -98,6 +98,17 @@ class AppUpdateService {
 
       final release = AppReleaseInfo.fromMap(Map<String, dynamic>.from(response));
 
+      // No update if installed version matches or exceeds latest release
+      if (installedVersionCode >= release.latestVersionCode ||
+          installedVersionName == release.latestVersion) {
+        return AppUpdateCheckResult(
+          status: UpdateStatus.noUpdate,
+          release: release,
+          installedVersionCode: installedVersionCode,
+          installedVersionName: installedVersionName,
+        );
+      }
+
       // Mandatory check: installed < minimum_supported_version_code OR (update_type == MANDATORY && installed < latest_version_code)
       if (installedVersionCode < release.minimumSupportedVersionCode ||
           (release.isMandatory && installedVersionCode < release.latestVersionCode)) {
