@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -17,13 +18,15 @@ void main() async {
     anonKey: SupabaseConstants.supabaseAnonKey,
   );
 
-  // Initialize Firebase (one-time, before runApp)
-  try {
-    await Firebase.initializeApp();
-    debugPrint('[main] Firebase initialized successfully.');
-  } catch (e) {
-    debugPrint('[main] Firebase init failed (google-services.json may be missing): $e');
-    debugPrint('[main] App continues — in-app notifications still work via Supabase Realtime.');
+  // Initialize Firebase (one-time, before runApp — native Android/iOS only)
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+      debugPrint('[main] Firebase initialized successfully.');
+    } catch (e) {
+      debugPrint('[main] Firebase init failed (google-services.json may be missing): $e');
+      debugPrint('[main] App continues — in-app notifications still work via Supabase Realtime.');
+    }
   }
 
   runApp(
