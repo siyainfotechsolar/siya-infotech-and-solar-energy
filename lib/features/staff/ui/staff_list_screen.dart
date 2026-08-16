@@ -648,6 +648,155 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     }
   }
 
+  void _showResetPasswordDialog() {
+    final passwordController = TextEditingController();
+    bool obscure = true;
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.lock_reset, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('Reset Password', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Set new password for ${_currentStaff['name']}:',
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: obscure,
+                    decoration: InputDecoration(
+                      labelText: 'New Password',
+                      hintText: 'Minimum 6 characters',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setDialogState(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                  child: const Text('CANCEL'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : () async {
+                    final newPass = passwordController.text.trim();
+                    if (newPass.length < 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Password must be at least 6 characters')),
+                      );
+                      return;
+                    }
+                    setDialogState(() => isSaving = true);
+                    try {
+                      final supabase = ref.read(supabaseClientProvider);
+                      await supabase.rpc('admin_reset_staff_password', params: {
+                        'target_user_id': _currentStaff['id'],
+                        'new_password': newPass,
+                      });
+                      if (context.mounted) {
+                        Navigator.pop(dialogCtx);
+                        _showPasswordResetSuccessDialog(newPass);
+                      }
+                    } catch (e) {
+                      setDialogState(() => isSaving = false);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error resetting password: $e')),
+                        );
+                      }
+                    }
+                  },
+                  child: isSaving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('UPDATE PASSWORD'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showPasswordResetSuccessDialog(String newPassword) {
+    final staffName = _currentStaff['name'] ?? 'Staff';
+    final username = _currentStaff['mobile'] ?? _currentStaff['email'] ?? '';
+    final credText = "Siya Solar Staff Credentials:\nUser: $staffName\nUsername/Mobile: $username\nPassword: $newPassword";
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Password Updated!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Password for $staffName was successfully updated.', style: const TextStyle(color: Colors.black87)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Username: $username', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('New Password: $newPassword', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton.icon(
+            onPressed: () async {
+              try {
+                await SharePlus.instance.share(ShareParams(text: credText));
+              } catch (_) {
+                await Clipboard.setData(ClipboardData(text: credText));
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Copied credentials to clipboard!')));
+                }
+              }
+            },
+            icon: const Icon(Icons.share, size: 16),
+            label: const Text('SHARE CREDENTIALS'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CLOSE'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final historyAsync = ref.watch(staffWorkHistoryProvider(_currentStaff['id']));
@@ -766,6 +915,83 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                       _buildInfoRow('Status:', isActive ? 'Active' : 'Inactive', color: isActive ? Colors.green : Colors.red),
                       _buildInfoRow('App Version:', '${_currentStaff['app_version'] ?? "N/A"} (${_currentStaff['build_number'] ?? "N/A"})'),
                       _buildInfoRow('Last Active:', _currentStaff['last_active_at'] != null ? AppDateUtils.formatDateTime(_currentStaff['last_active_at']) : 'N/A'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Login Credentials Card (Admin View)
+              Card(
+                color: Colors.blue.shade50,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: Colors.blue.shade200),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.vpn_key, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('LOGIN CREDENTIALS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Text('Username / Mobile: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                          Expanded(
+                            child: SelectableText(
+                              _currentStaff['mobile'] ?? _currentStaff['email'] ?? 'N/A',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 18, color: Colors.blue),
+                            tooltip: 'Copy Username',
+                            onPressed: () {
+                              final text = _currentStaff['mobile'] ?? _currentStaff['email'] ?? '';
+                              Clipboard.setData(ClipboardData(text: text));
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username copied to clipboard!')));
+                            },
+                          ),
+                        ],
+                      ),
+                      if (_currentStaff['email'] != null) ...[
+                        Row(
+                          children: [
+                            const Text('Login Email: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                            Expanded(
+                              child: SelectableText(
+                                _currentStaff['email'] ?? '',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (ref.read(userRoleProvider).value == 'admin') ...[
+                        const Divider(),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _showResetPasswordDialog,
+                            icon: const Icon(Icons.lock_reset, size: 18),
+                            label: const Text('RESET / CHANGE STAFF PASSWORD'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
