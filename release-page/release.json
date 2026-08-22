@@ -1,18 +1,17 @@
 {
   "appName": "Siya Solar Staff",
   "subtitle": "Official Android Application for Staff & Field Operations",
-  "version": "1.0.12",
-  "versionCode": 13,
-  "releaseDate": "2026-08-17",
+  "version": "1.0.13",
+  "versionCode": 14,
+  "releaseDate": "2026-08-22",
   "minAndroidVersion": "Android 6.0 (API level 23)+",
   "apkSize": "76.5 MB",
-  "apkFile": "releases/Siya-Solar-Staff-v1.0.12.apk",
+  "apkFile": "releases/Siya-Solar-Staff-v1.0.13.apk",
   "latestApk": "releases/latest/Siya-Solar-Staff-latest.apk",
   "changelog": [
-    "v1.0.12: Barcode Scanner Update & Installation Data Sync Fix",
-    "Integrated mobile_scanner for fast, reliable live-camera barcode scanning",
-    "Fixed missing Installation Summary data (System Capacity, Serials, Geo-Tags) syncing to cloud",
-    "Added manual fallback and torch functionality for the scanner",
-    "Duplicate barcode validation to prevent scanning the same panel twice"
+    "v1.0.13: Tap-to-View Dashboard Refactoring",
+    "Streamlined Admin and Staff dashboard UX to follow pure Tap-to-View interaction",
+    "Removed redundant VIEW, VIEW ALL, VIEW STAFF, and OPEN buttons",
+    "Added expandable accordion Loan Status section and interactive priority rows"
   ]
 }
