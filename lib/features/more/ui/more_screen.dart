@@ -11,6 +11,7 @@ import '../../staff/ui/staff_list_screen.dart';
 import '../../staff/ui/staff_directory_screen.dart';
 import '../../import/ui/import_screen.dart';
 import '../../customers/ui/customer_merge_screen.dart';
+import '../../customers/ui/customer_list_screen.dart';
 import '../../tasks/ui/unassigned_tasks_screen.dart';
 import 'audit_log_screen.dart';
 
@@ -104,6 +105,13 @@ class MoreScreen extends ConsumerWidget {
                       title: const Text('Staff Management'),
                       onTap: () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const StaffListScreen()));
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.inventory_2_outlined),
+                      title: const Text('Materials & Dispatches'),
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const CustomerListScreen()));
                       },
                     ),
                     ListTile(

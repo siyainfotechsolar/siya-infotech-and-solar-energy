@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -231,12 +232,19 @@ class _ExifValidationModalState extends State<_ExifValidationModal> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                widget.file,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+              child: kIsWeb
+                  ? Image.network(
+                      widget.file.path,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : Image.file(
+                      widget.file,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
             ),
             const SizedBox(height: 12),
 

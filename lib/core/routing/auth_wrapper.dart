@@ -7,7 +7,6 @@ import '../../features/auth/ui/login_screen.dart';
 import '../../features/auth/ui/splash_screen.dart';
 import '../../features/home/ui/admin_dashboard_screen.dart';
 import '../../features/home/ui/staff_dashboard_screen.dart';
-import '../../features/home/ui/installer_dashboard_screen.dart';
 import '../services/app_update_service.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_state.dart';
@@ -265,8 +264,13 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
             }
 
             if (role == 'admin') return const AdminDashboardScreen();
-            if (role == 'office_staff' || role == 'delivery_staff' || role == 'supervisor') return const StaffDashboardScreen();
-            if (role == 'installer' || role == 'wireman') return const InstallerDashboardScreen();
+            if (role == 'office_staff' ||
+                role == 'delivery_staff' ||
+                role == 'supervisor' ||
+                role == 'installer' ||
+                role == 'wireman') {
+              return const StaffDashboardScreen();
+            }
             
             // Inactive / Deactivated account or pending activation
             return Scaffold(

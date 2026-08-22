@@ -3,6 +3,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/services/permission_service.dart';
 import '../../../core/services/data_filter_service.dart';
+import '../../../core/utils/priority_calculator.dart';
 
 class CustomerFilter {
   final String query;
@@ -12,6 +13,13 @@ class CustomerFilter {
   final bool? priority;
   final String? loan;
   final String? installation;
+  final String subType; // 'leads', 'customers', or 'all'
+  final String? loanStage;
+  final String? loanIssueStatus;
+  final String? bankName;
+  final String priorityFilter; // 'ALL', 'HIGH', 'MEDIUM', 'NORMAL'
+  final String sortBy; // 'priority', 'oldest_update', 'newest_customer'
+  final String stageTag; // 'ALL', 'PM_SURYA_GHAR', 'LOAN', 'MATERIAL', 'WORK', 'PROBLEM', 'COMPLETED'
 
   CustomerFilter({
     this.query = '',
@@ -21,6 +29,13 @@ class CustomerFilter {
     this.priority,
     this.loan = 'All',
     this.installation = 'All',
+    this.subType = 'all',
+    this.loanStage,
+    this.loanIssueStatus,
+    this.bankName,
+    this.priorityFilter = 'ALL',
+    this.sortBy = 'priority',
+    this.stageTag = 'ALL',
   });
 
   CustomerFilter copyWith({
@@ -31,6 +46,13 @@ class CustomerFilter {
     bool? priority,
     String? loan,
     String? installation,
+    String? subType,
+    String? loanStage,
+    String? loanIssueStatus,
+    String? bankName,
+    String? priorityFilter,
+    String? sortBy,
+    String? stageTag,
   }) {
     return CustomerFilter(
       query: query ?? this.query,
@@ -40,13 +62,20 @@ class CustomerFilter {
       priority: priority ?? this.priority,
       loan: loan ?? this.loan,
       installation: installation ?? this.installation,
+      subType: subType ?? this.subType,
+      loanStage: loanStage ?? this.loanStage,
+      loanIssueStatus: loanIssueStatus ?? this.loanIssueStatus,
+      bankName: bankName ?? this.bankName,
+      priorityFilter: priorityFilter ?? this.priorityFilter,
+      sortBy: sortBy ?? this.sortBy,
+      stageTag: stageTag ?? this.stageTag,
     );
   }
 }
 
 class CustomerFilterNotifier extends Notifier<CustomerFilter> {
   @override
-  CustomerFilter build() => CustomerFilter();
+  CustomerFilter build() => CustomerFilter(subType: 'all', stageTag: 'ALL');
 
   void updateFilter(CustomerFilter filter) {
     state = filter;
@@ -78,6 +107,9 @@ class CustomerListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     final user = ref.read(currentUserProvider);
     final perms = await ref.read(currentUserPermissionsProvider.future);
 
+    List<Map<String, dynamic>> rawList = [];
+
+    // Retrieve scoped customer IDs for permissions
     List<String> scopedCustomerIds = [];
     if (perms.dataAccessLevel == DataAccessLevel.assignedData && user != null) {
       scopedCustomerIds = await DataFilterService.getAuthorizedCustomerIds(
@@ -85,110 +117,116 @@ class CustomerListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
         userId: user.id,
         permissions: perms,
       );
-
-      if (scopedCustomerIds.isEmpty && perms.category != StaffCategory.admin) {
-        _hasMore = false;
-        return [];
-      }
     }
 
     final selectFields = DataFilterService.selectCustomerFields(perms);
-    var query = supabase
-        .from('customers')
-        .select('$selectFields, site_installation_tasks(task_type, status), tasks(name, status)');
 
-    if (scopedCustomerIds.isNotEmpty) {
-      query = query.inFilter('id', scopedCustomerIds);
-    }
-
-    if (filter.query.isNotEmpty) {
-      query = query.or('name.ilike.%${filter.query}%,mobile.ilike.%${filter.query}%,consumer_number.ilike.%${filter.query}%,customer_id.ilike.%${filter.query}%,village.ilike.%${filter.query}%,pm_surya_ghar_application_id.ilike.%${filter.query}%');
-    }
-
-    if (filter.stages.isNotEmpty) {
-      query = query.inFilter('stage', filter.stages);
-    }
-
-    if (filter.village != null && filter.village!.isNotEmpty) {
-      query = query.eq('village', filter.village!);
-    }
-
-    if (filter.loan != null && filter.loan != 'All') {
-      query = query.eq('loan_required', filter.loan == 'Yes');
-    }
-
-    if (filter.installation != null && filter.installation != 'All') {
-      query = query.eq('stage', 'Installation');
-    }
-
-    if (filter.priority == true) {
-      query = query.eq('priority', true);
-    }
-
-    if (filter.ageRange != null && filter.ageRange!.isNotEmpty) {
-      final now = DateTime.now();
-      if (filter.ageRange == '8–14') {
-        final d8 = now.subtract(const Duration(days: 8)).toIso8601String().split('T').first;
-        final d14 = now.subtract(const Duration(days: 14)).toIso8601String().split('T').first;
-        query = query.lte('application_date', d8).gte('application_date', d14);
-      } else if (filter.ageRange == '15–29') {
-        final d15 = now.subtract(const Duration(days: 15)).toIso8601String().split('T').first;
-        final d29 = now.subtract(const Duration(days: 29)).toIso8601String().split('T').first;
-        query = query.lte('application_date', d15).gte('application_date', d29);
-      } else if (filter.ageRange == '30+') {
-        final d30 = now.subtract(const Duration(days: 30)).toIso8601String().split('T').first;
-        query = query.lte('application_date', d30);
+    if (filter.subType == 'leads' || filter.subType == 'all') {
+      var queryLeads = supabase.from('leads').select('*').neq('status', 'converted');
+      if (filter.query.isNotEmpty) {
+        queryLeads = queryLeads.or('name.ilike.%${filter.query}%,mobile.ilike.%${filter.query}%,village.ilike.%${filter.query}%,lead_id.ilike.%${filter.query}%');
       }
-    }
-
-    final response = await query
-        .order('created_at', ascending: false)
-        .range(page * _pageSize, (page + 1) * _pageSize - 1);
-
-    final list = List<Map<String, dynamic>>.from(response);
-
-    // Filter by installation in-memory if needed
-    List<Map<String, dynamic>> filteredList = list;
-    if (filter.installation != null && filter.installation != 'All') {
-      filteredList = list.where((c) {
-        final tasks = c['site_installation_tasks'] as List? ?? [];
-        final structure = tasks.firstWhere((t) => t['task_type'] == 'Structure Installation', orElse: () => null);
-        final panel = tasks.firstWhere((t) => t['task_type'] == 'Panel Uploading', orElse: () => null);
-        final wiring = tasks.firstWhere((t) => t['task_type'] == 'Wiring', orElse: () => null);
-        
-        final isStructureCompleted = structure != null && structure['status'] == 'Completed';
-        final isPanelCompleted = panel != null && panel['status'] == 'Completed';
-        final isWiringCompleted = wiring != null && wiring['status'] == 'Completed';
-        
-        if (filter.installation == 'Structure Pending') {
-          return !isStructureCompleted;
-        }
-        if (filter.installation == 'Structure Completed') {
-          return isStructureCompleted;
-        }
-        if (filter.installation == 'Panel Pending') {
-          return isStructureCompleted && !isPanelCompleted;
-        }
-        if (filter.installation == 'Panel Completed') {
-          return isPanelCompleted;
-        }
-        if (filter.installation == 'Wiring Pending') {
-          return isStructureCompleted && !isWiringCompleted;
-        }
-        if (filter.installation == 'Wiring Completed') {
-          return isWiringCompleted;
-        }
-        if (filter.installation == 'Installation Completed') {
-          return isStructureCompleted && isPanelCompleted && isWiringCompleted;
-        }
-        return true;
+      if (filter.village != null && filter.village!.isNotEmpty) {
+        queryLeads = queryLeads.eq('village', filter.village!);
+      }
+      final leadsRaw = await queryLeads;
+      final leadsFormatted = List<Map<String, dynamic>>.from(leadsRaw).map((l) {
+        final map = Map<String, dynamic>.from(l);
+        map['stage'] = 'Lead';
+        return map;
       }).toList();
+      rawList.addAll(leadsFormatted);
     }
 
-    if (list.length < _pageSize) {
+    if (filter.subType == 'customers' || filter.subType == 'all') {
+      var queryCust = supabase.from('customers').select('$selectFields, site_installation_tasks(task_type, status), tasks(name, status)');
+      if (scopedCustomerIds.isNotEmpty) {
+        queryCust = queryCust.inFilter('id', scopedCustomerIds);
+      }
+      if (filter.query.isNotEmpty) {
+        queryCust = queryCust.or('name.ilike.%${filter.query}%,mobile.ilike.%${filter.query}%,consumer_number.ilike.%${filter.query}%,customer_id.ilike.%${filter.query}%,village.ilike.%${filter.query}%,pm_surya_ghar_application_id.ilike.%${filter.query}%');
+      }
+      if (filter.village != null && filter.village!.isNotEmpty) {
+        queryCust = queryCust.eq('village', filter.village!);
+      }
+      if (filter.subType == 'customers') {
+        queryCust = queryCust.neq('stage', 'Lead');
+      }
+      final customersRaw = await queryCust;
+      rawList.addAll(List<Map<String, dynamic>>.from(customersRaw));
+    }
+
+    // Map computed priority and update fields
+    final mappedList = rawList.map((item) {
+      final map = Map<String, dynamic>.from(item);
+      
+      final createdAt = map['created_at'] != null ? DateTime.tryParse(map['created_at']) : null;
+      final lastUpdate = map['last_meaningful_update'] != null ? DateTime.tryParse(map['last_meaningful_update']) : null;
+      final loanIssueStatus = map['loan_issue_status'] as String?;
+      final tasksList = [
+        ...(map['tasks'] as List? ?? []),
+        ...(map['site_installation_tasks'] as List? ?? []),
+      ];
+
+      final automatic = PriorityCalculator.calculateAutomatic(
+        createdAt: createdAt,
+        lastMeaningfulUpdate: lastUpdate,
+        loanIssueStatus: loanIssueStatus,
+        tasks: tasksList,
+      );
+      final manual = map['manual_priority'] as String?;
+      final finalPriority = PriorityCalculator.calculateFinal(automatic: automatic, manual: manual);
+
+      map['automatic_priority'] = automatic;
+      map['final_priority'] = finalPriority;
+      map['customer_age'] = PriorityCalculator.getCustomerAge(createdAt);
+      map['last_update_label'] = PriorityCalculator.getLastUpdateLabel(lastUpdate, createdAt);
+      map['days_since_update'] = PriorityCalculator.getDaysSinceUpdate(lastUpdate, createdAt);
+
+      return map;
+    }).toList();
+
+    // Filter in-memory
+    var filteredList = mappedList.where((c) => _matchesFilter(c, filter)).toList();
+
+    // Sort in-memory
+    if (filter.sortBy == 'priority') {
+      filteredList.sort((a, b) {
+        final valA = PriorityCalculator.priorityValue(a['final_priority'] ?? 'NORMAL');
+        final valB = PriorityCalculator.priorityValue(b['final_priority'] ?? 'NORMAL');
+        if (valA != valB) {
+          return valB.compareTo(valA); // High priority first
+        }
+        final daysA = a['days_since_update'] as int? ?? 0;
+        final daysB = b['days_since_update'] as int? ?? 0;
+        return daysB.compareTo(daysA); // Oldest update first
+      });
+    } else if (filter.sortBy == 'oldest_update') {
+      filteredList.sort((a, b) {
+        final daysA = a['days_since_update'] as int? ?? 0;
+        final daysB = b['days_since_update'] as int? ?? 0;
+        return daysB.compareTo(daysA); // more days since update first
+      });
+    } else if (filter.sortBy == 'newest_customer') {
+      filteredList.sort((a, b) {
+        final ageA = a['customer_age'] as int? ?? 0;
+        final ageB = b['customer_age'] as int? ?? 0;
+        return ageA.compareTo(ageB); // smaller age (newest) first
+      });
+    }
+
+    // Paginate in-memory
+    final start = page * _pageSize;
+    if (start >= filteredList.length) {
+      _hasMore = false;
+      return [];
+    }
+    final end = (page + 1) * _pageSize;
+    final paginated = filteredList.sublist(start, end > filteredList.length ? filteredList.length : end);
+    if (end >= filteredList.length) {
       _hasMore = false;
     }
-    return filteredList;
+    return paginated;
   }
 
   Future<void> loadMore() async {
@@ -212,7 +250,7 @@ class CustomerListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     if (f.query.isNotEmpty) {
       final queryLower = f.query.toLowerCase();
       final name = (c['name'] ?? '').toString().toLowerCase();
-      final cid = (c['customer_id'] ?? '').toString().toLowerCase();
+      final cid = (c['customer_id'] ?? c['lead_id'] ?? '').toString().toLowerCase();
       final mobile = (c['mobile'] ?? '').toString().toLowerCase();
       final cons = (c['consumer_number'] ?? '').toString().toLowerCase();
       final village = (c['village'] ?? '').toString().toLowerCase();
@@ -227,8 +265,23 @@ class CustomerListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
       }
     }
     
-    if (f.stages.isNotEmpty && !f.stages.contains(c['stage'])) {
-      return false;
+    if (f.stageTag != 'ALL') {
+      if (f.stageTag == 'PM_SURYA_GHAR') {
+        if (c['stage'] != 'PM Surya Ghar Application') return false;
+      } else if (f.stageTag == 'LOAN') {
+        if (c['stage'] != 'Loan Processing') return false;
+      } else if (f.stageTag == 'MATERIAL') {
+        if (c['stage'] != 'Material Required' && c['stage'] != 'Material Dispatched') return false;
+      } else if (f.stageTag == 'WORK') {
+        if (c['stage'] != 'Installation' && c['stage'] != 'RTS' && c['stage'] != 'Subsidy') return false;
+      } else if (f.stageTag == 'PROBLEM') {
+        final hasOpenProblem = c['loan_issue_status'] == 'OPEN PROBLEM';
+        final hasIncompleteTask = (c['tasks'] as List? ?? []).any((t) => t['status'] == 'not_completed' || t['status'] == 'incomplete') || 
+                                  (c['site_installation_tasks'] as List? ?? []).any((t) => t['status'] == 'not_completed' || t['status'] == 'incomplete');
+        if (!hasOpenProblem && !hasIncompleteTask) return false;
+      } else if (f.stageTag == 'COMPLETED') {
+        if (c['stage'] != 'Completed') return false;
+      }
     }
     
     if (f.village != null && f.village!.isNotEmpty && c['village'] != f.village) {
@@ -284,6 +337,10 @@ class CustomerListNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
       if (f.installation == 'Installation Completed') {
         if (!isStructureCompleted || !isPanelCompleted || !isWiringCompleted) return false;
       }
+    }
+    
+    if (f.priorityFilter != 'ALL') {
+      if (c['final_priority'] != f.priorityFilter) return false;
     }
     
     return true;
@@ -343,13 +400,11 @@ final customerHistoryProvider = FutureProvider.autoDispose.family<List<Map<Strin
         .select('*, staff(name, profile_photo_url)')
         .eq('customer_id', customerId);
 
-    if (stageRes is List) {
-      for (final item in stageRes) {
-        final m = Map<String, dynamic>.from(item);
-        m['type'] = 'stage';
-        m['title'] = 'Advanced to ${m['new_stage']}';
-        results.add(m);
-      }
+    for (final item in stageRes) {
+      final m = Map<String, dynamic>.from(item);
+      m['type'] = 'stage';
+      m['title'] = 'Advanced to ${m['new_stage']}';
+      results.add(m);
     }
   } catch (_) {}
 
@@ -359,13 +414,11 @@ final customerHistoryProvider = FutureProvider.autoDispose.family<List<Map<Strin
         .select('*, staff:performed_by(name, profile_photo_url)')
         .eq('customer_id', customerId);
 
-    if (actRes is List) {
-      for (final item in actRes) {
-        final m = Map<String, dynamic>.from(item);
-        m['type'] = 'activity';
-        m['title'] = m['description'] ?? m['action'] ?? 'Activity logged';
-        results.add(m);
-      }
+    for (final item in actRes) {
+      final m = Map<String, dynamic>.from(item);
+      m['type'] = 'activity';
+      m['title'] = m['description'] ?? m['action'] ?? 'Activity logged';
+      results.add(m);
     }
   } catch (_) {}
 
@@ -382,7 +435,7 @@ final customerTasksProvider = FutureProvider.autoDispose.family<List<Map<String,
   final supabase = ref.watch(supabaseClientProvider);
   final res = await supabase
       .from('tasks')
-      .select('*')
+      .select('*, task_staff(staff(name))')
       .eq('customer_id', customerId)
       .order('created_at', ascending: false);
   return List<Map<String, dynamic>>.from(res);
@@ -411,7 +464,7 @@ final installationTasksProvider = FutureProvider.autoDispose.family<List<Map<Str
   List<Map<String, dynamic>> tasks = List<Map<String, dynamic>>.from(response);
 
   // 2. Auto-seed default tasks if missing
-  const defaultTaskTypes = ['Structure', 'Wiring', 'Net Metering'];
+  const defaultTaskTypes = ['Structure Installation', 'Wiring', 'Panel Uploading'];
   final existingTypes = tasks.map((t) => t['task_type'].toString()).toSet();
   final missingTypes = defaultTaskTypes.where((t) => !existingTypes.contains(t)).toList();
 
@@ -438,7 +491,7 @@ final installationTasksProvider = FutureProvider.autoDispose.family<List<Map<Str
     }
   }
 
-  // 3. Sync status from tasks table (e.g. if Wireman completed 'Wiring' or Structure Installer completed 'Structure')
+  // 3. Sync status from tasks table
   try {
     final generalTasks = await supabase
         .from('tasks')
@@ -448,14 +501,15 @@ final installationTasksProvider = FutureProvider.autoDispose.family<List<Map<Str
     final generalList = List<Map<String, dynamic>>.from(generalTasks);
 
     for (final taskRow in tasks) {
-      final type = taskRow['task_type'].toString();
+      final type = taskRow['task_type'].toString().toLowerCase();
       // Match against general tasks
       for (final g in generalList) {
         final gName = g['name'].toString().toLowerCase();
         final gStatus = g['status'].toString().toLowerCase();
 
-        if ((type == 'Wiring' && (gName.contains('wiring') || gName.contains('electrical') || gName.contains('wireman'))) ||
-            (type == 'Structure' && (gName.contains('structure') || gName.contains('installer')))) {
+        if ((type.contains('wiring') && (gName.contains('wiring') || gName.contains('electrical') || gName.contains('wireman'))) ||
+            (type.contains('structure') && (gName.contains('structure') || gName.contains('installer'))) ||
+            (type.contains('panel') && (gName.contains('panel') || gName.contains('solar panel')))) {
           if (gStatus == 'completed') {
             taskRow['status'] = 'Completed';
           } else if (gStatus == 'in_progress' && taskRow['status'] != 'Completed') {

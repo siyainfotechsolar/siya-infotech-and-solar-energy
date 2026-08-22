@@ -329,6 +329,11 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
           await supabase.from('task_staff').insert(staffMappings);
 
+          // Update customer last meaningful update
+          await supabase.from('customers').update({
+            'last_meaningful_update': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', _selectedCustomerId!);
+
           // Admin Name
           String adminName = 'Admin';
           if (user != null) {

@@ -36,6 +36,8 @@ CREATE TABLE public.customers (
     priority BOOLEAN DEFAULT false,
     loan_required BOOLEAN DEFAULT NULL,
     remarks TEXT,
+    pdf_url TEXT,
+    pdf_name TEXT,
     created_by UUID REFERENCES public.staff(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL

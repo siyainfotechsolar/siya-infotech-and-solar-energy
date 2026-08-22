@@ -15,7 +15,7 @@ void main() async {
   // Initialize Supabase
   await Supabase.initialize(
     url: SupabaseConstants.supabaseUrl,
-    anonKey: SupabaseConstants.supabaseAnonKey,
+    publishableKey: SupabaseConstants.supabaseAnonKey,
   );
 
   // Initialize Firebase (one-time, before runApp — native Android/iOS only)

@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../tasks/ui/task_list_screen.dart';
 import '../../customers/ui/customer_list_screen.dart';
-import '../../staff/ui/delivery_details_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/notifications/notification_state.dart';
 import '../../notifications/ui/notifications_screen.dart';
 import '../../../core/widgets/app_tap_widgets.dart';
@@ -115,8 +113,6 @@ class StaffHomeScreen extends ConsumerWidget {
     final hour = DateTime.now().hour;
     final greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
-    final roleAsync = ref.watch(userRoleProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Solar CRM', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -128,39 +124,16 @@ class StaffHomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: roleAsync.when(
+      body: statsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (role) {
-          return statsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error loading dashboard: $e')),
-            data: (stats) {
-              if (role == 'installer') {
-                return ref.watch(currentStaffProfileProvider).when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => _buildInstallerDashboard(context, stats, null, user?.email),
-                  data: (profile) => _buildInstallerDashboard(context, stats, profile, user?.email),
-                );
-              }
-
-              if (role == 'delivery_staff') {
-                if (user?.id == null) {
-                  return const Center(child: Text('User ID is null'));
-                }
-                return ref.watch(currentStaffProfileProvider).when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => _DeliveryStaffDashboardWidget(profile: null, userId: user!.id),
-                  data: (profile) => _DeliveryStaffDashboardWidget(profile: profile, userId: user!.id),
-                );
-              }
-
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+        error: (e, _) => Center(child: Text('Error loading dashboard: $e')),
+        data: (stats) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                     ref.watch(currentStaffProfileProvider).when(
                       loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
                       error: (_, __) => const SizedBox.shrink(),
@@ -406,241 +379,6 @@ class StaffHomeScreen extends ConsumerWidget {
             ),
           );
         },
-      );
-    },
-  ),
-);
-}
-
-  Widget _buildInstallerDashboard(
-    BuildContext context,
-    Map<String, int> stats,
-    Map<String, dynamic>? profile,
-    String? email,
-  ) {
-    final theme = Theme.of(context);
-    final name = (profile?['name'] ?? 'Installer').toString().toUpperCase();
-    final photoUrl = profile?['profile_photo_url'] as String?;
-    final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
-
-    final hour = DateTime.now().hour;
-    final greeting = (hour < 12 ? 'GOOD MORNING' : hour < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING');
-
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Greeting & Profile Row
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$greeting,',
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      name,
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: theme.colorScheme.primary, letterSpacing: -0.5),
-                    ),
-                  ],
-                ),
-              ),
-              CircleAvatar(
-                radius: 26,
-                backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                child: hasPhoto ? null : Text(
-                  name.isNotEmpty ? name[0] : 'I',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-
-          // MY WORK SECTION
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.grey.shade200, width: 1.5),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'MY WORK',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5),
-                  ),
-                  const SizedBox(height: 8),
-                  Divider(color: Colors.grey.shade300, thickness: 1.5),
-                  const SizedBox(height: 12),
-                  
-                  // Assigned Tasks Row
-                  InkWell(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Assigned Tasks',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '${stats['my_tasks'] ?? 0}',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.primary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  
-                  // Pending Sub-Row
-                  InkWell(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16.0, top: 4, bottom: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Pending',
-                                style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${stats['pending_tasks'] ?? 0}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Completed Sub-Row
-                  InkWell(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 1))),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16.0, top: 4, bottom: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Completed',
-                                style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${stats['completed_tasks'] ?? 0}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: Colors.grey.shade200, thickness: 1),
-                  const SizedBox(height: 12),
-
-                  // Assigned Sites Row
-                  InkWell(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen())),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Assigned Sites',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '${stats['my_customers'] ?? 0}',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.secondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // ACTIONS SECTION BUTTONS
-          ElevatedButton.icon(
-            icon: const Icon(Icons.assignment, size: 20),
-            label: const Text('MY TASKS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5)),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen(initialIndex: 0))),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-            ),
-          ),
-          Consumer(
-            builder: (context, ref, child) {
-              final permsAsync = ref.watch(currentUserPermissionsProvider);
-              final canViewCustomers = permsAsync.value?.canView(AppModule.customers) ?? false;
-              if (!canViewCustomers) return const SizedBox.shrink();
-
-              return Column(
-                children: [
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.location_on, size: 20),
-                    label: const Text('MY SITES', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5)),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen())),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.secondary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
       ),
     );
   }
@@ -718,288 +456,22 @@ class _DashboardCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeliveryStaffDashboardWidget extends ConsumerStatefulWidget {
-  final Map<String, dynamic>? profile;
-  final String userId;
-
-  const _DeliveryStaffDashboardWidget({
-    required this.profile,
-    required this.userId,
-  });
-
-  @override
-  ConsumerState<_DeliveryStaffDashboardWidget> createState() => _DeliveryStaffDashboardWidgetState();
-}
-
-class _DeliveryStaffDashboardWidgetState extends ConsumerState<_DeliveryStaffDashboardWidget> {
-  int _refreshCounter = 0;
-
-  void _triggerRefresh() {
-    setState(() {
-      _refreshCounter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final name = (widget.profile?['name'] ?? 'Delivery Staff').toString().toUpperCase();
-    final supabase = ref.watch(supabaseClientProvider);
-
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      key: ValueKey(_refreshCounter),
-      future: supabase
-          .from('material_dispatches')
-          .select('*, customers(name, village, pm_surya_ghar_application_id, address, mobile)')
-          .eq('delivery_staff_id', widget.userId)
-          .order('created_at', ascending: false)
-          .then((res) => List<Map<String, dynamic>>.from(res)),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error loading deliveries: ${snapshot.error}'));
-        }
-
-        final dispatches = snapshot.data ?? [];
-        final pendingCount = dispatches.where((d) => d['status'] == 'Pending').length;
-        final outCount = dispatches.where((d) => d['status'] == 'Out for Delivery').length;
-        final deliveredCount = dispatches.where((d) => d['status'] == 'Delivered').length;
-
-        return RefreshIndicator(
-          onRefresh: () async {
-            _triggerRefresh();
-          },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Header
-              Text(
-                'GOOD MORNING, $name',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-              ),
-              const SizedBox(height: 16),
-              
-              // Title Section
-              const Text(
-                'MY DELIVERIES',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-              ),
-              const SizedBox(height: 12),
-
-              // Stats Row
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: _buildStatCard('Pending', pendingCount, Colors.red),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStatCard('Out for Delivery', outCount, Colors.orange),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStatCard('Delivered', deliveredCount, Colors.green),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Dispatches List
-              if (dispatches.isEmpty)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: Text('No assigned deliveries found', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                  ),
-                )
-              else
-                ...dispatches.map((d) {
-                  final customer = d['customers'] ?? {};
-                  final custName = customer['name'] ?? 'N/A';
-                  final village = customer['village'] ?? 'N/A';
-                  final mobile = customer['mobile'] as String?;
-                  final materialName = d['material_name'] ?? 'N/A';
-                  final qty = d['quantity'] ?? 0;
-                  final status = d['status'] ?? 'Pending';
-                  
-                  Color badgeColor = Colors.red;
-                  String statusEmoji = '🔴';
-                  if (status == 'Out for Delivery') {
-                    badgeColor = Colors.orange;
-                    statusEmoji = '🟡';
-                  } else if (status == 'Delivered') {
-                    badgeColor = Colors.green;
-                    statusEmoji = '🟢';
-                  }
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Customer: $custName',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: badgeColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '$statusEmoji $status',
-                                  style: TextStyle(color: badgeColor, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Site: $village', style: const TextStyle(color: Colors.black54)),
-                          const SizedBox(height: 4),
-                          Text('Material: $materialName × $qty', style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
-                          
-                          if (mobile != null && mobile.trim().isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.phone_android, size: 16, color: Colors.grey),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      mobile,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    ),
-                                  ),
-                                  // Call Button
-                                  IconButton(
-                                    icon: const Icon(Icons.call, color: Colors.blue, size: 22),
-                                    tooltip: 'Call Customer',
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                                    onPressed: () async {
-                                      final Uri url = Uri(scheme: 'tel', path: mobile);
-                                      if (await canLaunchUrl(url)) {
-                                        await launchUrl(url);
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // WhatsApp Button
-                                  IconButton(
-                                    icon: const Icon(Icons.message, color: Colors.green, size: 22),
-                                    tooltip: 'WhatsApp Customer',
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                                    onPressed: () async {
-                                      final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
-                                      final Uri url = Uri.parse('https://wa.me/91$cleanMobile');
-                                      if (await canLaunchUrl(url)) {
-                                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => DeliveryDetailsScreen(dispatch: d),
-                                  ),
-                                ).then((_) => _triggerRefresh());
-                              },
-                              child: const Text('VIEW DELIVERY'),
-                            ),
-                          ),
-                        ],
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  );
-                }).toList(),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatCard(String label, int count, Color color, {VoidCallback? onTap}) {
-    final debouncer = Debouncer();
-
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: color.withValues(alpha: 0.2)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap == null
-            ? null
-            : () {
-                if (debouncer.canExecute()) {
-                  onTap();
-                }
-              },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            children: [
-              Text(
-                '$count',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
+                  ),
+                  Icon(Icons.chevron_right, size: 16, color: color.withValues(alpha: 0.7)),
+                ],
               ),
             ],
           ),
@@ -1008,6 +480,7 @@ class _DeliveryStaffDashboardWidgetState extends ConsumerState<_DeliveryStaffDas
     );
   }
 }
+
 
 // ─── Staff Notification Bell ──────────────────────────────────────────────
 class _StaffNotificationBell extends ConsumerWidget {

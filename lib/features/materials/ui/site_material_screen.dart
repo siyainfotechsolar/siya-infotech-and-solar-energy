@@ -463,7 +463,7 @@ class _SiteMaterialScreenState extends ConsumerState<SiteMaterialScreen> {
   }
 }
 
-class _MaterialCard extends StatelessWidget {
+class _MaterialCard extends StatefulWidget {
   final Map<String, dynamic> material;
   final bool isAdmin;
   final WidgetRef ref;
@@ -473,6 +473,13 @@ class _MaterialCard extends StatelessWidget {
     required this.isAdmin,
     required this.ref,
   });
+
+  @override
+  State<_MaterialCard> createState() => _MaterialCardState();
+}
+
+class _MaterialCardState extends State<_MaterialCard> {
+  bool _isExpanded = false;
 
   Color _statusColor(String status) {
     switch (status) {
@@ -514,99 +521,124 @@ class _MaterialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = ((material['products'] as Map?)?['name'] ?? '') as String;
-    final requiredQty = material['required_quantity'] as int? ?? 0;
-    final installedQty = material['installed_quantity'] as int? ?? 0;
-    final status = material['status'] as String? ?? 'Not Started';
-    final serialNo = material['serial_number'] as String?;
-    final date = material['updated_at'] as String?;
+    final type = ((widget.material['products'] as Map?)?['name'] ?? '') as String;
+    final requiredQty = widget.material['required_quantity'] as int? ?? 0;
+    final installedQty = widget.material['installed_quantity'] as int? ?? 0;
+    final status = widget.material['status'] as String? ?? 'Not Started';
+    final serialNo = widget.material['serial_number'] as String?;
+    final date = widget.material['updated_at'] as String?;
 
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: isAdmin
-            ? () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            title: Text(
+              type,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                type == 'Generation Meter'
+                    ? 'Status: $status'
+                    : 'Installed: $installedQty of $requiredQty',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _statusColor(status).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  builder: (context) => EditMaterialSheet(
-                    material: material,
-                    isAdmin: isAdmin,
-                    ref: ref,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_statusIcon(status), size: 14, color: _statusColor(status)),
+                      const SizedBox(width: 4),
+                      Text(
+                        status,
+                        style: TextStyle(color: _statusColor(status), fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ],
                   ),
-                );
-              }
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  _isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                  color: Colors.blueGrey,
+                ),
+              ],
+            ),
+          ),
+          if (_isExpanded) ...[
+            const Divider(height: 1, thickness: 1),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      type,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  if (type != 'Generation Meter') ...[
+                    _buildDetailRow('Required Quantity:', '$requiredQty'),
+                    _buildDetailRow('Installed Quantity:', '$installedQty'),
+                  ],
+                  _buildDetailRow('Serial Number:', (serialNo != null && serialNo.isNotEmpty) ? serialNo : 'Not Set'),
+                  _buildDetailRow('Last Updated:', (date != null && date.isNotEmpty) ? AppDateUtils.formatDateTime(date) : 'N/A'),
+                  if (widget.isAdmin) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text('EDIT MATERIAL DETAILS'),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                            builder: (context) => EditMaterialSheet(
+                              material: widget.material,
+                              isAdmin: widget.isAdmin,
+                              ref: widget.ref,
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _statusColor(status).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_statusIcon(status), size: 14, color: _statusColor(status)),
-                        const SizedBox(width: 4),
-                        Text(
-                          status,
-                          style: TextStyle(color: _statusColor(status), fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 12),
-              if (type != 'Generation Meter') ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Required: $requiredQty', style: const TextStyle(color: Colors.black54)),
-                    Text('Installed: $installedQty', style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (serialNo != null && serialNo.isNotEmpty) ...[
-                Row(
-                  children: [
-                    const Icon(Icons.qr_code, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text('S/N: $serialNo', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (date != null && date.isNotEmpty)
-                Row(
-                  children: [
-                    const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text('Updated: ${AppDateUtils.formatDateTime(date)}', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                  ],
-                ),
-            ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 13)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
           ),
-        ),
+        ],
       ),
     );
   }

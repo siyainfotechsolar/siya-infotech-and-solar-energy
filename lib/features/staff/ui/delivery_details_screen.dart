@@ -23,6 +23,7 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
   PlatformFile? _pickedPhoto;
   String? _uploadedPhotoUrl;
   late String _status;
+  String? _expandedSection;
 
   @override
   void initState() {
@@ -211,7 +212,7 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Details Card
+            // --- Header Summary Card ---
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -220,156 +221,204 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildInfoRow('Customer Name:', customerName, isHeader: true),
-                    const Divider(height: 20),
-                    if (mobile != null && mobile.trim().isNotEmpty) ...[
-                      Row(
-                        children: [
-                          const Text('Mobile Number: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
-                          Expanded(
-                            child: SelectableText(
-                              mobile,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.call, color: Colors.blue),
-                            tooltip: 'Call Customer',
-                            onPressed: () async {
-                              final Uri url = Uri(scheme: 'tel', path: mobile);
-                              if (await canLaunchUrl(url)) {
-                                await launchUrl(url);
-                              }
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.message, color: Colors.green),
-                            tooltip: 'WhatsApp Customer',
-                            onPressed: () async {
-                              final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
-                              final Uri url = Uri.parse('https://wa.me/91$cleanMobile');
-                              if (await canLaunchUrl(url)) {
-                                await launchUrl(url, mode: LaunchMode.externalApplication);
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    _buildInfoRow('PM Surya Ghar App ID:', appId),
-                    _buildInfoRow('Site Address:', address),
-                    _buildInfoRow('Material:', material),
-                    _buildInfoRow('Quantity:', '$quantity'),
-                    _buildInfoRow('Dispatch Status:', _status, statusColor: _statusColor(_status)),
+                    Text(customerName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+                    const SizedBox(height: 6),
+                    _buildInfoRow('Status:', _status, statusColor: _statusColor(_status)),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // Photo Preview
-            if (_uploadedPhotoUrl != null) ...[
-              const Text('Uploaded Delivery Photo:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  _uploadedPhotoUrl!, 
-                  height: 200, 
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image, size: 48, color: Colors.green),
-                          SizedBox(height: 8),
-                          Text('Delivery Photo Uploaded', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-            ] else if (_pickedPhoto != null) ...[
-              const Text('Selected Delivery Photo:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.image, color: Colors.green),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_pickedPhoto!.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-            ],
-
-            // Action Buttons
+            // --- Action Buttons ---
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
             else ...[
-              if (_status == 'Pending')
+              if (_status == 'Pending') ...[
                 ElevatedButton(
                   onPressed: _startDelivery,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('START DELIVERY', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text('START DELIVERY', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 ),
-              if (_status == 'Out for Delivery') ...[
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.add_a_photo),
-                  label: const Text('TAKE DELIVERY PHOTO'),
-                  onPressed: _takePhoto,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: hasPhoto ? _markDelivered : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('MARK DELIVERED', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
+                const SizedBox(height: 16),
               ],
-              if (isDelivered)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
+              if (_status == 'Out for Delivery') ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.add_a_photo, size: 16),
+                        label: const Text('TAKE PHOTO', style: TextStyle(fontSize: 12)),
+                        onPressed: _takePhoto,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: hasPhoto ? _markDelivered : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('MARK DELIVERED', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (isDelivered) ...[
+                Card(
+                  color: Colors.green.shade50,
+                  child: const Padding(
+                    padding: EdgeInsets.all(12),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 24),
+                        Icon(Icons.check_circle, color: Colors.green),
                         SizedBox(width: 8),
-                        Text(
-                          'Delivered successfully!',
-                          style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
+                        Text('Delivered successfully!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+              ],
             ],
+
+            // --- Collapsible Sections ---
+
+            // 1. Contact & Address
+            _buildCollapsibleSection(
+              title: 'Contact & Address',
+              sectionKey: 'contact_address',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (mobile != null && mobile.trim().isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Text('Mobile: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+                        Expanded(
+                          child: SelectableText(
+                            mobile,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.call, color: Colors.blue, size: 20),
+                          onPressed: () async {
+                            final Uri url = Uri(scheme: 'tel', path: mobile);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url);
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.message, color: Colors.green, size: 20),
+                          onPressed: () async {
+                            final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+                            final Uri url = Uri.parse('https://wa.me/91$cleanMobile');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  _buildInfoRow('PM Surya Ghar ID:', appId),
+                  const SizedBox(height: 8),
+                  const Text('Site Address:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  Text(address, style: const TextStyle(fontSize: 14)),
+                ],
+              ),
+            ),
+
+            // 2. Material Details
+            _buildCollapsibleSection(
+              title: 'Material Details',
+              sectionKey: 'material',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow('Material:', material),
+                  _buildInfoRow('Quantity:', '$quantity'),
+                ],
+              ),
+            ),
+
+            // 3. Delivery History & Photo
+            _buildCollapsibleSection(
+              title: 'Delivery Photo & History',
+              sectionKey: 'delivery_history',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow('Dispatch Status:', _status, statusColor: _statusColor(_status)),
+                  if (widget.dispatch['updated_at'] != null)
+                    _buildInfoRow('Last Updated:', AppDateUtils.formatDateTime(widget.dispatch['updated_at'])),
+                  if (_uploadedPhotoUrl != null) ...[
+                    const SizedBox(height: 12),
+                    const Text('Uploaded Delivery Photo:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        _uploadedPhotoUrl!, 
+                        height: 200, 
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 180,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.image, size: 48, color: Colors.green),
+                                SizedBox(height: 8),
+                                Text('Delivery Photo Uploaded', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ] else if (_pickedPhoto != null) ...[
+                    const SizedBox(height: 12),
+                    const Text('Selected Delivery Photo:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.image, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_pickedPhoto!.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -415,6 +464,46 @@ class _DeliveryDetailsScreenState extends ConsumerState<DeliveryDetailsScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleSection({
+    required String title,
+    required String sectionKey,
+    required Widget child,
+  }) {
+    final isExpanded = _expandedSection == sectionKey;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              setState(() {
+                _expandedSection = isExpanded ? null : sectionKey;
+              });
+            },
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            trailing: Icon(
+              isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+              color: Colors.blueGrey,
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1, thickness: 1),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: child,
+            ),
+          ],
         ],
       ),
     );

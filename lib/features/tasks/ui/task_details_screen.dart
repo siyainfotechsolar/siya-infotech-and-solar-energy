@@ -12,9 +12,8 @@ import '../../../core/services/realtime_service.dart';
 import '../../customers/ui/customer_details_screen.dart';
 import '../../../core/utils/activity_logger.dart';
 import '../../../core/notifications/notification_state.dart';
-import '../../../core/notifications/notification_model.dart';
-import 'widgets/installation_photos_section.dart';
 import 'widgets/limited_customer_view_sheet.dart';
+import '../../../core/notifications/notification_model.dart';
 import '../../../core/services/permission_service.dart';
 
 class TaskDetailsScreen extends ConsumerStatefulWidget {
@@ -29,6 +28,7 @@ class TaskDetailsScreen extends ConsumerStatefulWidget {
 class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
   bool _isLoading = false;
   final _remarkController = TextEditingController();
+  String? _expandedSection;
 
   @override
   void initState() {
@@ -174,6 +174,11 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                           'not_completed_at': DateTime.now().toUtc().toIso8601String(),
                         }).eq('id', taskId);
 
+                        // Update customer last meaningful update
+                        await supabase.from('customers').update({
+                          'last_meaningful_update': DateTime.now().toUtc().toIso8601String(),
+                        }).eq('id', widget.task['customer_id']);
+
                         // 3. Insert task activity record
                         await supabase.from('task_activity').insert({
                           'task_id': taskId,
@@ -244,6 +249,11 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
         'started_by': user?.id,
         'started_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', taskId);
+
+      // Update customer last meaningful update
+      await supabase.from('customers').update({
+        'last_meaningful_update': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', widget.task['customer_id']);
 
       await supabase.from('task_activity').insert({
         'task_id': taskId,
@@ -545,6 +555,11 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
         'completion_remark': remark,
       }).eq('id', taskId);
 
+      // Update customer last meaningful update
+      await supabase.from('customers').update({
+        'last_meaningful_update': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', widget.task['customer_id']);
+
       await supabase.from('task_activity').insert({
         'task_id': taskId,
         'staff_id': user?.id,
@@ -808,374 +823,73 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Task Name & Priority Header
+                // --- Task Header Block ---
                 Text(
                   task['name'] ?? '',
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 4),
-                _buildPriorityBadge(task['priority']),
-                const SizedBox(height: 20),
-
-                // 2. Clickable Customer details card
-                const Text('Customer', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 6),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () async {
-                      if (customer != null) {
-                        final perms = await ref.read(currentUserPermissionsProvider.future);
-                        if (perms.category != StaffCategory.admin) {
-                          if (context.mounted) {
-                            LimitedCustomerViewSheet.show(
-                              context: context,
-                              customerName: customer['name'] ?? '',
-                              mobile: customer['mobile'] ?? '',
-                              address: customer['address'] ?? customer['village'] ?? '',
-                              village: customer['village'],
-                              applicationId: customer['consumer_number'],
-                              roleCategory: perms.category,
-                            );
-                          }
-                        } else {
-                          if (context.mounted) {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: customer)));
-                          }
-                        }
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(customer?['name'] ?? 'N/A', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-                          const SizedBox(height: 4),
-                          Text('ID: ${customer?['customer_id'] ?? 'N/A'}', style: TextStyle(color: Colors.grey.shade700)),
-                          const SizedBox(height: 2),
-                          Text('Mobile: ${customer?['mobile'] ?? 'N/A'}', style: TextStyle(color: Colors.grey.shade700)),
-                          if (customer?['consumer_number'] != null) ...[
-                            const SizedBox(height: 2),
-                            Text('Consumer No: ${customer?['consumer_number']}', style: TextStyle(color: Colors.grey.shade700)),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
+                Row(
+                  children: [
+                    _buildPriorityBadge(task['priority']),
+                    const SizedBox(width: 8),
+                    _buildStatusRow(status),
+                  ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // 3. Description
-                const Text('Description', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      task['description'] ?? 'No description provided.',
-                      style: const TextStyle(fontSize: 15),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 4. Status Dot
-                const Text('STATUS', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                _buildStatusRow(status),
-                const SizedBox(height: 20),
-
-                // 5. Assigned Staff
-                const Text('ASSIGNED STAFF', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: assignedStaff.isEmpty
-                          ? [const Text('No staff assigned.', style: TextStyle(color: Colors.grey))]
-                          : assignedStaff.map((staff) {
-                              final staffName = staff['name'] ?? 'Unknown';
-                              final photoUrl = staff['profile_photo_url'] as String?;
-                              final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
-                              
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 12,
-                                      backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-                                      backgroundColor: hasPhoto ? Colors.transparent : Colors.blue.shade100,
-                                      child: hasPhoto ? null : Text(
-                                        staffName.isNotEmpty ? staffName[0].toUpperCase() : 'S',
-                                        style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(staffName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 5.5 Assigner Staff
-                const Text('ASSIGNER STAFF', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildCreatorRow(task['creator'] as Map<String, dynamic>?),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 6. Activity Timeline
-                const Text('ACTIVITY', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: activities.isEmpty
-                        ? const Text('No activity logged yet.', style: TextStyle(color: Colors.grey))
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: activities.map((activity) {
-                              final timeStr = _formatTaskTime(activity['created_at']);
-                              final type = activity['activity_type'];
-                              final staffName = activity['staff_name'] ?? 'Unknown';
-                              final photoUrl = activity['staff_profile_photo_url'] as String?;
-                              final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
-                              
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6.0),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 10,
-                                      backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-                                      backgroundColor: hasPhoto ? Colors.transparent : Colors.blue.shade100,
-                                      child: hasPhoto ? null : Text(
-                                        staffName.isNotEmpty ? staffName[0].toUpperCase() : 'S',
-                                        style: const TextStyle(fontSize: 7, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        '$timeStr  $staffName $type task',
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 6.5 Attachments
-                const Text('ATTACHMENTS', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (attachments.isEmpty)
-                          const Text('No attachments yet.', style: TextStyle(color: Colors.grey))
-                        else
-                          Column(
-                            children: attachments.map((att) {
-                              final name = att['file_name'] ?? 'File';
-                              final path = att['file_path'] as String;
-                              final type = att['file_type'] ?? 'other';
-                              final size = att['file_size'] as int? ?? 0;
-                              final uploader = att['uploader_name'] ?? 'System';
-                              final createdAt = att['created_at'];
-                              final isPdf = type == 'pdf';
-                              final sizeKb = (size / 1024).toStringAsFixed(1);
-                              
-                              final loggedInUser = ref.read(currentUserProvider);
-                              final isAdmin = ref.read(userRoleProvider).value == 'admin';
-                              final canDelete = isAdmin || (loggedInUser != null && loggedInUser.id == att['uploaded_by']);
-
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: Icon(isPdf ? Icons.picture_as_pdf : Icons.image, color: Colors.blue),
-                                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                                subtitle: Text('By $uploader on ${_formatTaskDate(createdAt)} • $sizeKb KB'),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.open_in_new, color: Colors.blue),
-                                      tooltip: 'Open',
-                                      onPressed: () => _openAttachment(name, type, path),
-                                    ),
-                                    if (canDelete)
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                        tooltip: 'Delete',
-                                        onPressed: () => _deleteAttachment(att['id'], path),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        if (ref.read(userRoleProvider).value == 'admin' || assignedStaff.any((s) => s['name'] == ref.read(currentUserProvider)?.email)) ...[
-                          const Divider(),
-                          Row(
-                            children: [
-                              TextButton.icon(
-                                onPressed: () => _pickAndUploadAttachment('pdf'),
-                                icon: const Icon(Icons.picture_as_pdf, size: 16),
-                                label: const Text('Add PDF', style: TextStyle(fontSize: 12)),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton.icon(
-                                onPressed: () => _pickAndUploadAttachment('photo'),
-                                icon: const Icon(Icons.add_a_photo, size: 16),
-                                label: const Text('Add Photo', style: TextStyle(fontSize: 12)),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 6.6 Installation Photos Section
-                if (task['id'] != null && task['customer_id'] != null) ...[
-                  InstallationPhotosSection(
-                    taskId: task['id'],
-                    customerId: task['customer_id'],
-                    userRole: userRole,
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // 7. Completion card
-                if (status == 'completed') ...[
-                  const Text('COMPLETION', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    color: Colors.green.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Completed By: ${completerName ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text('Date: ${_formatTaskDate(task['completed_at'])}'),
-                          Text('Time: ${_formatTaskTime(task['completed_at'])}'),
-                          if (task['completion_remark'] != null) ...[
-                            const SizedBox(height: 8),
-                            const Text('Completion Remark:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text(task['completion_remark']),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // 7.5 Incomplete details card
-                if (status == 'not_completed') ...[
-                  const Text('TASK NOT COMPLETED DETAILS', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    color: Colors.red.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Not Completed By: ${task['not_completed_by_name'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text('Date: ${_formatTaskDate(task['not_completed_at'])}'),
-                          Text('Time: ${_formatTaskTime(task['not_completed_at'])}'),
-                          const SizedBox(height: 8),
-                          Text('Reason: ${task['not_completed_reason'] ?? 'N/A'}', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold)),
-                          if (task['not_completed_remark'] != null && task['not_completed_remark'].toString().isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            const Text('Remark:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text(task['not_completed_remark']),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // 8. Action Buttons
+                // --- Primary Action Buttons at the Top ---
                 if (status == 'pending') ...[
                   ElevatedButton(
                     onPressed: _isLoading ? null : _startTask,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: _isLoading
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('START TASK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('START TASK', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                 ] else if (status == 'in_progress') ...[
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _completeTask,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('COMPLETE TASK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _completeTask,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text('COMPLETE TASK', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _markNotCompletedDialog,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('NOT COMPLETED', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _markNotCompletedDialog,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: const Text('NOT COMPLETED', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                 ] else if (status == 'not_completed') ...[
                   Builder(
                     builder: (context) {
                       final isAdminOrSupervisor = userRole == 'admin' || userRole == 'supervisor';
-                      
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -1184,35 +898,43 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Text('MARK IN PROGRESS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: const Text('MARK IN PROGRESS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           if (isAdminOrSupervisor) ...[
-                            ElevatedButton(
-                              onPressed: _isLoading ? null : _reassignStaffDialog,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: const Text('REASSIGN TASK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading ? null : _reassignStaffDialog,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.orange,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    child: const Text('REASSIGN', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading ? null : _completeTask,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    child: const Text('COMPLETE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: _isLoading ? null : _completeTask,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: const Text('COMPLETE TASK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                           ],
                         ],
                       );
@@ -1220,14 +942,327 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
                   ),
                 ],
 
-                // 9. WhatsApp Button (always shown)
+                // --- Collapsible Sections ---
+
+                // 1. Customer Details
+                _buildCollapsibleSection(
+                  title: 'Customer Details',
+                  sectionKey: 'customer',
+                  child: customer == null
+                      ? const Text('No customer details available.', style: TextStyle(color: Colors.grey))
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(customer['name'] ?? 'N/A', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
+                            const SizedBox(height: 8),
+                            _buildDetailRow('Customer ID:', customer['customer_id'] ?? 'N/A'),
+                            _buildDetailRow('Mobile:', customer['mobile'] ?? 'N/A'),
+                            if (customer['consumer_number'] != null)
+                              _buildDetailRow('Consumer No:', customer['consumer_number'] ?? 'N/A'),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.open_in_new, size: 16),
+                                label: const Text('VIEW FULL CUSTOMER'),
+                                onPressed: () async {
+                                  final perms = await ref.read(currentUserPermissionsProvider.future);
+                                  if (perms.category != StaffCategory.admin) {
+                                    if (context.mounted) {
+                                      LimitedCustomerViewSheet.show(
+                                        context: context,
+                                        customerName: customer['name'] ?? '',
+                                        mobile: customer['mobile'] ?? '',
+                                        address: customer['address'] ?? customer['village'] ?? '',
+                                        village: customer['village'],
+                                        applicationId: customer['consumer_number'],
+                                        roleCategory: perms.category.displayName,
+                                      );
+                                    }
+                                  } else {
+                                    if (context.mounted) {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: customer)));
+                                    }
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+
+                // 2. Address
+                _buildCollapsibleSection(
+                  title: 'Address',
+                  sectionKey: 'address',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow('Village:', customer?['village'] ?? 'N/A'),
+                      const SizedBox(height: 8),
+                      const Text('Full Address:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      Text(customer?['address'] ?? 'N/A', style: const TextStyle(fontSize: 14)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.map_outlined),
+                          label: const Text('OPEN MAP'),
+                          onPressed: () async {
+                            final address = customer?['address'] ?? customer?['village'] ?? '';
+                            if (address.isEmpty) return;
+                            final Uri url = Uri.parse(
+                              'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}'
+                            );
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not open map.')),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 3. Assigned Staff
+                _buildCollapsibleSection(
+                  title: 'Assigned Staff',
+                  sectionKey: 'staff',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('ASSIGNER:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                      const SizedBox(height: 6),
+                      _buildCreatorRow(task['creator'] as Map<String, dynamic>?),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      const Text('ASSIGNED STAFF:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                      const SizedBox(height: 6),
+                      if (assignedStaff.isEmpty)
+                        const Text('No staff assigned.', style: TextStyle(color: Colors.grey))
+                      else
+                        Column(
+                          children: assignedStaff.map((staff) {
+                            final staffName = staff['name'] ?? 'Unknown';
+                            final photoUrl = staff['profile_photo_url'] as String?;
+                            final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
+                            
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4.0),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+                                    backgroundColor: hasPhoto ? Colors.transparent : Colors.blue.shade100,
+                                    child: hasPhoto ? null : Text(
+                                      staffName.isNotEmpty ? staffName[0].toUpperCase() : 'S',
+                                      style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(staffName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // 4. Task Information
+                _buildCollapsibleSection(
+                  title: 'Task Information',
+                  sectionKey: 'info',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow('Due Date:', task['due_date'] != null ? _formatTaskDate(task['due_date']) : 'No due date'),
+                      const SizedBox(height: 8),
+                      const Text('Description:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      Text(task['description'] ?? 'No description provided.', style: const TextStyle(fontSize: 14)),
+                      
+                      if (status == 'completed') ...[
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text('COMPLETED BY: ${completerName ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                              const SizedBox(height: 4),
+                              Text('Date: ${_formatTaskDate(task['completed_at'])} • ${_formatTaskTime(task['completed_at'])}', style: const TextStyle(fontSize: 13)),
+                              if (task['completion_remark'] != null) ...[
+                                const SizedBox(height: 6),
+                                Text('Remark: ${task['completion_remark']}', style: const TextStyle(fontSize: 13)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      if (status == 'not_completed') ...[
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text('NOT COMPLETED BY: ${task['not_completed_by_name'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                              const SizedBox(height: 4),
+                              Text('Reason: ${task['not_completed_reason'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
+                              Text('Date: ${_formatTaskDate(task['not_completed_at'])} • ${_formatTaskTime(task['not_completed_at'])}', style: const TextStyle(fontSize: 13)),
+                              if (task['not_completed_remark'] != null && task['not_completed_remark'].toString().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text('Remark: ${task['not_completed_remark']}', style: const TextStyle(fontSize: 13)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // 5. History & Attachments
+                _buildCollapsibleSection(
+                  title: 'History & Attachments',
+                  sectionKey: 'history',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('ATTACHMENTS:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                      const SizedBox(height: 6),
+                      if (attachments.isEmpty)
+                        const Text('No attachments yet.', style: TextStyle(color: Colors.grey, fontSize: 13))
+                      else
+                        Column(
+                          children: attachments.map((att) {
+                            final name = att['file_name'] ?? 'File';
+                            final path = att['file_path'] as String;
+                            final type = att['file_type'] ?? 'other';
+                            final size = att['file_size'] as int? ?? 0;
+                            final uploader = att['uploader_name'] ?? 'System';
+                            final createdAt = att['created_at'];
+                            final isPdf = type == 'pdf';
+                            final sizeKb = (size / 1024).toStringAsFixed(1);
+                            
+                            final loggedInUser = ref.read(currentUserProvider);
+                            final isAdmin = ref.read(userRoleProvider).value == 'admin';
+                            final canDelete = isAdmin || (loggedInUser != null && loggedInUser.id == att['uploaded_by']);
+
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(isPdf ? Icons.picture_as_pdf : Icons.image, color: Colors.blue, size: 20),
+                              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                              subtitle: Text('By $uploader on ${_formatTaskDate(createdAt)} • $sizeKb KB', style: const TextStyle(fontSize: 11)),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.open_in_new, color: Colors.blue, size: 18),
+                                    onPressed: () => _openAttachment(name, type, path),
+                                  ),
+                                  if (canDelete)
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                      onPressed: () => _deleteAttachment(att['id'], path),
+                                    ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      if (ref.read(userRoleProvider).value == 'admin' || assignedStaff.any((s) => s['name'] == ref.read(currentUserProvider)?.email)) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _pickAndUploadAttachment('pdf'),
+                              icon: const Icon(Icons.picture_as_pdf, size: 14),
+                              label: const Text('Add PDF', style: TextStyle(fontSize: 11)),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: () => _pickAndUploadAttachment('photo'),
+                              icon: const Icon(Icons.add_a_photo, size: 14),
+                              label: const Text('Add Photo', style: TextStyle(fontSize: 11)),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      const Text('ACTIVITY TIMELINE:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                      const SizedBox(height: 6),
+                      if (activities.isEmpty)
+                        const Text('No activity logged yet.', style: TextStyle(color: Colors.grey, fontSize: 13))
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: activities.map((activity) {
+                            final timeStr = _formatTaskTime(activity['created_at']);
+                            final type = activity['activity_type'];
+                            final staffName = activity['staff_name'] ?? 'Unknown';
+                            final photoUrl = activity['staff_profile_photo_url'] as String?;
+                            final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
+                            
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4.0),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 10,
+                                    backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+                                    backgroundColor: hasPhoto ? Colors.transparent : Colors.blue.shade100,
+                                    child: hasPhoto ? null : Text(
+                                      staffName.isNotEmpty ? staffName[0].toUpperCase() : 'S',
+                                      style: const TextStyle(fontSize: 7, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '$timeStr  $staffName $type task',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+
+                // --- WhatsApp Button (Always shown at bottom) ---
                 OutlinedButton.icon(
                   onPressed: () => _whatsappTask(task, customer, status),
                   icon: const Icon(Icons.share, color: Colors.green),
-                  label: const Text('WHATSAPP', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                  label: const Text('SHARE ON WHATSAPP', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.green),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
@@ -1344,6 +1379,70 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
         const SizedBox(width: 8),
         Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
       ],
+    );
+  }
+
+  Widget _buildCollapsibleSection({
+    required String title,
+    required String sectionKey,
+    required Widget child,
+  }) {
+    final isExpanded = _expandedSection == sectionKey;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              setState(() {
+                _expandedSection = isExpanded ? null : sectionKey;
+              });
+            },
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            trailing: Icon(
+              isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+              color: Colors.blueGrey,
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1, thickness: 1),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: child,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

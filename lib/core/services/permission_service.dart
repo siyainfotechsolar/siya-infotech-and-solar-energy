@@ -4,33 +4,51 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
 /// Categories of staff members in the CRM
-class StaffCategory {
-  static const String admin = 'Admin';
-  static const String supervisor = 'Supervisor';
-  static const String structureInstaller = 'Structure Installer';
-  static const String wireman = 'Wireman / Electrical Installer';
-  static const String deliveryStaff = 'Delivery Staff';
-  static const String otherStaff = 'Other Staff';
+enum StaffCategory {
+  admin,
+  supervisor,
+  structureInstaller,
+  wireman,
+  deliveryStaff,
+  otherStaff;
 
-  static const List<String> all = [
-    admin,
-    supervisor,
-    structureInstaller,
-    wireman,
-    deliveryStaff,
-    otherStaff,
-  ];
+  /// The human-readable display string (also stored in DB `category` column)
+  String get displayName {
+    switch (this) {
+      case StaffCategory.admin:             return 'Admin';
+      case StaffCategory.supervisor:        return 'Supervisor';
+      case StaffCategory.structureInstaller:return 'Structure Installer';
+      case StaffCategory.wireman:           return 'Wireman / Electrical Installer';
+      case StaffCategory.deliveryStaff:     return 'Delivery Staff';
+      case StaffCategory.otherStaff:        return 'Other Staff';
+    }
+  }
 
-  static String fromRole(String? role, [String? category]) {
-    if (category != null && category.isNotEmpty) return category;
-    if (role == 'admin') return admin;
-    if (role == 'supervisor') return supervisor;
-    if (role == 'installer') return structureInstaller;
-    if (role == 'wireman') return wireman;
-    if (role == 'delivery_staff') return deliveryStaff;
-    return otherStaff;
+  static const List<StaffCategory> all = StaffCategory.values;
+
+  static StaffCategory fromRole(String? role, [String? categoryStr]) {
+    // Try category string first
+    if (categoryStr != null && categoryStr.isNotEmpty) {
+      return fromString(categoryStr);
+    }
+    switch (role) {
+      case 'admin':          return StaffCategory.admin;
+      case 'supervisor':     return StaffCategory.supervisor;
+      case 'installer':      return StaffCategory.structureInstaller;
+      case 'wireman':        return StaffCategory.wireman;
+      case 'delivery_staff': return StaffCategory.deliveryStaff;
+      default:               return StaffCategory.otherStaff;
+    }
+  }
+
+  static StaffCategory fromString(String? val) {
+    for (final c in StaffCategory.values) {
+      if (c.displayName == val) return c;
+    }
+    return StaffCategory.otherStaff;
   }
 }
+
 
 /// Data Access Scopes
 enum DataAccessLevel {
@@ -231,7 +249,7 @@ class ModulePermissionState {
 /// Complete Staff Permissions Object
 class StaffPermissions {
   final String staffId;
-  final String category;
+  final StaffCategory category;
   final DataAccessLevel dataAccessLevel;
   final Map<String, ModulePermissionState> modules;
 
@@ -308,7 +326,7 @@ class StaffPermissions {
   }
 
   factory StaffPermissions.fromJson(Map<String, dynamic> json, String staffId) {
-    final cat = json['category'] as String? ?? StaffCategory.otherStaff;
+    final cat = StaffCategory.fromString(json['category'] as String?);
     final level = DataAccessLevelExtension.fromDbString(json['data_access_level'] as String?);
     final rawModules = json['permissions'] as Map<String, dynamic>? ?? {};
     
@@ -336,14 +354,14 @@ class StaffPermissions {
     });
     return {
       'staff_id': staffId,
-      'category': category,
+      'category': category.displayName,
       'data_access_level': dataAccessLevel.toDbString(),
       'permissions': rawMods,
     };
   }
 
   StaffPermissions copyWith({
-    String? category,
+    StaffCategory? category,
     DataAccessLevel? dataAccessLevel,
     Map<String, ModulePermissionState>? modules,
   }) {
@@ -356,7 +374,7 @@ class StaffPermissions {
   }
 
   /// Default permission templates per category
-  static StaffPermissions getDefault(String staffId, String category) {
+  static StaffPermissions getDefault(String staffId, StaffCategory category) {
     final modules = <String, ModulePermissionState>{};
     DataAccessLevel level = DataAccessLevel.assignedData;
 
@@ -591,7 +609,7 @@ class PermissionService {
     // Also update category in staff table if changed
     await _supabase
         .from('staff')
-        .update({'category': permissions.category})
+        .update({'category': permissions.category.displayName})
         .eq('id', permissions.staffId);
   }
 }

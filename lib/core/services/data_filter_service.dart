@@ -40,12 +40,10 @@ class DataFilterService {
           .select('tasks(customer_id)')
           .eq('staff_id', userId);
 
-      if (taskRes is List) {
-        for (final item in taskRes) {
-          final cid = (item['tasks'] as Map?)?['customer_id'] as String?;
-          if (cid != null && cid.isNotEmpty) {
-            customerIds.add(cid);
-          }
+      for (final item in taskRes) {
+        final cid = (item['tasks'] as Map?)?['customer_id'] as String?;
+        if (cid != null && cid.isNotEmpty) {
+          customerIds.add(cid);
         }
       }
 
@@ -56,14 +54,12 @@ class DataFilterService {
             .select('customer_id')
             .eq('delivery_staff_id', userId);
 
-        if (dispatchRes is List) {
-          for (final item in dispatchRes) {
+        for (final item in dispatchRes) {
             final cid = item['customer_id'] as String?;
             if (cid != null && cid.isNotEmpty) {
               customerIds.add(cid);
             }
           }
-        }
       }
 
       // 3. Fetch customers from site installation tasks (Structure Installer / Wireman)
@@ -73,14 +69,12 @@ class DataFilterService {
             .select('customer_id')
             .or('started_by.eq.$userId,completed_by.eq.$userId');
 
-        if (instRes is List) {
-          for (final item in instRes) {
+        for (final item in instRes) {
             final cid = item['customer_id'] as String?;
             if (cid != null && cid.isNotEmpty) {
               customerIds.add(cid);
             }
           }
-        }
       }
 
       return customerIds.toList();
@@ -108,13 +102,10 @@ class DataFilterService {
           .select('task_id')
           .eq('staff_id', userId);
 
-      if (assignedRes is List) {
-        return assignedRes
-            .map((e) => e['task_id'] as String?)
-            .whereType<String>()
-            .toList();
-      }
-      return [];
+      return assignedRes
+          .map((e) => e['task_id'] as String?)
+          .whereType<String>()
+          .toList();
     } catch (e) {
       debugPrint('[DataFilterService] Error fetching authorized task IDs: $e');
       return [];

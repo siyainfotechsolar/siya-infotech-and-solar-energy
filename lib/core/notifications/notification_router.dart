@@ -5,7 +5,6 @@ import '../services/permission_service.dart';
 import '../services/global_loading_service.dart';
 import '../services/app_update_service.dart';
 import '../../features/auth/providers/auth_provider.dart';
-import '../../features/tasks/ui/task_details_screen.dart';
 import '../../features/customers/ui/customer_details_screen.dart';
 import '../../features/leads/ui/lead_details_screen.dart';
 import '../../features/staff/ui/staff_list_screen.dart';

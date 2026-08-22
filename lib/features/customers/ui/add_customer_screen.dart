@@ -26,11 +26,13 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
   final _remarksController = TextEditingController();
   final _pmSuryaGharApplicationIdController = TextEditingController();
 
+  String _entryType = 'lead'; // 'lead' or 'customer'
   String? _selectedSystemSize;
   DateTime _applicationDate = DateTime.now();
   List<String> _villageOptions = [];
   bool _isLoading = false;
   bool _hasUnsavedChanges = false;
+  String _paymentType = 'CASH';
 
   final List<String> _systemSizeOptions = ['1 kW', '2 kW', '3 kW', '4 kW', '5 kW', '10 kW', 'Other'];
 
@@ -126,98 +128,171 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
     );
   }
 
-  Future<void> _saveCustomer() async {
+  Future<void> _saveEntry() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
       final supabase = ref.read(supabaseClientProvider);
-      
-      // Duplicate Check: Mobile
       final cleanMobile = MobileValidator.normalize(_mobileController.text);
-      final duplicateMobile = await MobileValidator.checkDuplicate(
-        client: supabase,
-        table: 'customers',
-        mobile: cleanMobile,
-      );
-          
-      if (duplicateMobile != null) {
-        setState(() => _isLoading = false);
-        await _showDuplicateDialog(duplicateMobile);
-        return;
-      }
-      
-      // Duplicate Check: Consumer Number
-      final consumerNum = _consumerNumberController.text.trim();
-      if (consumerNum.isNotEmpty) {
-        final duplicateConsumer = await supabase
-            .from('customers')
-            .select('*')
-            .eq('consumer_number', consumerNum)
-            .maybeSingle();
-            
-        if (duplicateConsumer != null) {
-          setState(() => _isLoading = false);
-          await _showDuplicateDialog(duplicateConsumer);
-          return;
-        }
-      }
-
-      // Generate ID like C000001
-      final countResp = await supabase.from('customers').select('id');
-      final newIdNumber = (countResp as List).length + 1;
-      final generatedId = 'C${newIdNumber.toString().padLeft(6, '0')}';
-
       final user = ref.read(currentUserProvider);
 
-      final insertData = {
-        'customer_id': generatedId,
-        'name': _nameController.text.trim(),
-        'mobile': cleanMobile,
-        'consumer_number': consumerNum.isEmpty ? null : consumerNum,
-        'village': _villageController.text.trim(),
-        'address': _addressController.text.trim(),
-        'system_size': _selectedSystemSize,
-        'application_date': _applicationDate.toIso8601String().split('T').first,
-        'remarks': _remarksController.text.trim(),
-        'pm_surya_ghar_application_id': _pmSuryaGharApplicationIdController.text.trim().isEmpty ? null : _pmSuryaGharApplicationIdController.text.trim(),
-        'stage': 'PM Surya Ghar Application',
-        'created_by': user?.id,
-      };
+      if (_entryType == 'lead') {
+        // Lead duplicate check in leads table
+        final existingLead = await MobileValidator.checkDuplicate(
+          client: supabase,
+          table: 'leads',
+          mobile: cleanMobile,
+        );
+        if (existingLead != null) {
+          setState(() => _isLoading = false);
+          if (mounted) {
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => AlertDialog(
+                title: const Text('LEAD ALREADY EXISTS', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                content: Text('Lead already exists: ${existingLead['name']} (${existingLead['mobile']})'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CLOSE')),
+                ],
+              ),
+            );
+          }
+          return;
+        }
 
-      final insertedCustomer = await supabase.from('customers').insert(insertData).select().single();
+        // Generate ID like LEAD-000001
+        final countResp = await supabase.from('leads').select('id');
+        final newIdNumber = (countResp as List).length + 1;
+        final generatedLeadId = 'LEAD-${newIdNumber.toString().padLeft(6, '0')}';
 
-      if (user != null) {
+        // Save to leads table
+        final leadBaseData = {
+          'lead_id': generatedLeadId,
+          'name': _nameController.text.trim(),
+          'mobile': cleanMobile,
+          'village': _villageController.text.trim(),
+          'source': 'Manual',
+          'status': 'pending',
+          'created_by': user?.id,
+        };
+
+        final insertedLead = await supabase.from('leads').insert(leadBaseData).select().single();
+
         try {
-          final staffNameRes = await supabase.from('staff').select('name').eq('id', user.id).maybeSingle();
-          final staffName = staffNameRes?['name'] ?? 'Staff member';
-          await ActivityLogger.log(
-            supabase: supabase,
-            customerId: insertedCustomer['id'],
-            action: 'customer_added',
-            description: '$staffName added customer ${insertedCustomer['name']}',
-            performedBy: user.id,
-          );
+          await supabase.from('leads').update({
+            'last_meaningful_update': DateTime.now().toUtc().toIso8601String(),
+            'payment_type': _paymentType,
+          }).eq('id', insertedLead['id']);
+        } catch (_) {}
 
+        try {
           final notificationRepo = ref.read(notificationRepositoryProvider);
           await notificationRepo.notifyAdmins(
-            notificationType: NotificationType.customerCreated,
-            title: '👤 New Customer Added',
-            message: 'New customer ${insertedCustomer['name']} has been added.',
-            relatedRecordId: insertedCustomer['id'],
+            notificationType: NotificationType.leadCreated,
+            title: '🎯 New Lead Added',
+            message: 'New lead ${insertedLead['name']} ($generatedLeadId) has been created.',
+            relatedRecordId: insertedLead['id'],
           );
         } catch (_) {}
-      }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Customer saved successfully!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Lead saved successfully!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green)
+          );
+          ref.invalidate(customerListProvider);
+          Navigator.pop(context);
+        }
+
+      } else {
+        // Confirmed Customer Entry
+        final existingCustomer = await MobileValidator.checkDuplicate(
+          client: supabase,
+          table: 'customers',
+          mobile: cleanMobile,
+        );
+            
+        if (existingCustomer != null) {
+          setState(() => _isLoading = false);
+          await _showDuplicateDialog(existingCustomer);
+          return;
+        }
         
-        // Refresh provider to update lists and dashboard
-        ref.invalidate(customerListProvider);
+        final consumerNum = _consumerNumberController.text.trim();
+        if (consumerNum.isNotEmpty) {
+          final duplicateConsumer = await supabase
+              .from('customers')
+              .select('*')
+              .eq('consumer_number', consumerNum)
+              .maybeSingle();
+              
+          if (duplicateConsumer != null) {
+            setState(() => _isLoading = false);
+            await _showDuplicateDialog(duplicateConsumer);
+            return;
+          }
+        }
         
-        // Navigate to Customer Details
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: insertedCustomer)));
+        final countResp = await supabase.from('customers').select('id');
+        final newIdNumber = (countResp as List).length + 1;
+        final generatedId = 'C${newIdNumber.toString().padLeft(6, '0')}';
+
+        final baseInsertData = {
+          'customer_id': generatedId,
+          'name': _nameController.text.trim(),
+          'mobile': cleanMobile,
+          'consumer_number': consumerNum.isEmpty ? null : consumerNum,
+          'village': _villageController.text.trim(),
+          'address': _addressController.text.trim(),
+          'system_size': _selectedSystemSize,
+          'application_date': _applicationDate.toIso8601String().split('T').first,
+          'remarks': _remarksController.text.trim(),
+          'pm_surya_ghar_application_id': _pmSuryaGharApplicationIdController.text.trim().isEmpty ? null : _pmSuryaGharApplicationIdController.text.trim(),
+          'stage': 'PM Surya Ghar Application',
+          'created_by': user?.id,
+        };
+
+        final insertedCustomer = await supabase.from('customers').insert(baseInsertData).select().single();
+
+        try {
+          await supabase.from('customers').update({
+            'last_meaningful_update': DateTime.now().toUtc().toIso8601String(),
+            'payment_type': _paymentType,
+            'loan_required': _paymentType == 'LOAN',
+          }).eq('id', insertedCustomer['id']);
+        } catch (_) {}
+
+        if (user != null) {
+          try {
+            final staffNameRes = await supabase.from('staff').select('name').eq('id', user.id).maybeSingle();
+            final staffName = staffNameRes?['name'] ?? 'Staff member';
+            await ActivityLogger.log(
+              supabase: supabase,
+              customerId: insertedCustomer['id'],
+              action: 'customer_added',
+              description: '$staffName added customer ${insertedCustomer['name']}',
+              performedBy: user.id,
+            );
+
+            final notificationRepo = ref.read(notificationRepositoryProvider);
+            await notificationRepo.notifyAdmins(
+              notificationType: NotificationType.customerCreated,
+              title: '👤 New Customer Added',
+              message: 'New customer ${insertedCustomer['name']} has been added.',
+              relatedRecordId: insertedCustomer['id'],
+            );
+          } catch (_) {}
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Customer saved successfully!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green)
+          );
+          ref.invalidate(customerListProvider);
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: insertedCustomer)));
+        }
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -239,7 +314,7 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('NEW CUSTOMER'),
+          title: Text(_entryType == 'lead' ? 'NEW LEAD' : 'NEW CUSTOMER', style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
         body: SafeArea(
           child: Form(
@@ -247,9 +322,66 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                // Entry Type Toggle Chips
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Center(child: Text('LEAD', style: TextStyle(fontWeight: FontWeight.bold))),
+                        selected: _entryType == 'lead',
+                        onSelected: (val) {
+                          if (val) setState(() => _entryType = 'lead');
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Center(child: Text('CUSTOMER', style: TextStyle(fontWeight: FontWeight.bold))),
+                        selected: _entryType == 'customer',
+                        onSelected: (val) {
+                          if (val) setState(() => _entryType = 'customer');
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                if (_entryType == 'customer') ...[
+                  const Text('PAYMENT TYPE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Center(child: Text('CASH', style: TextStyle(fontWeight: FontWeight.bold))),
+                          selected: _paymentType == 'CASH',
+                          selectedColor: Colors.green.shade100,
+                          onSelected: (val) {
+                            if (val) setState(() => _paymentType = 'CASH');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Center(child: Text('LOAN', style: TextStyle(fontWeight: FontWeight.bold))),
+                          selected: _paymentType == 'LOAN',
+                          selectedColor: Colors.blue.shade100,
+                          onSelected: (val) {
+                            if (val) setState(() => _paymentType = 'LOAN');
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Customer Name *', prefixIcon: Icon(Icons.person)),
+                  decoration: const InputDecoration(labelText: 'Name *', prefixIcon: Icon(Icons.person)),
                   validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
                   onChanged: _onFieldChanged,
                 ),
@@ -264,12 +396,6 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
                   keyboardType: TextInputType.phone,
                   inputFormatters: MobileValidator.inputFormatters,
                   validator: (val) => MobileValidator.validate(val, required: true),
-                  onChanged: _onFieldChanged,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _consumerNumberController,
-                  decoration: const InputDecoration(labelText: 'Consumer Number', prefixIcon: Icon(Icons.numbers)),
                   onChanged: _onFieldChanged,
                 ),
                 const SizedBox(height: 16),
@@ -297,70 +423,83 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
                     return TextFormField(
                       controller: controller,
                       focusNode: focusNode,
-                      decoration: const InputDecoration(labelText: 'Village 🔍', prefixIcon: Icon(Icons.location_city)),
+                      decoration: const InputDecoration(labelText: 'Village / Location 🔍', prefixIcon: Icon(Icons.location_city)),
                       onEditingComplete: onEditingComplete,
                     );
                   },
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.location_on)),
-                  maxLines: 3,
-                  onChanged: _onFieldChanged,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedSystemSize,
-                  decoration: const InputDecoration(labelText: 'System Size', prefixIcon: Icon(Icons.solar_power)),
-                  hint: const Text('Select kW ▼'),
-                  items: _systemSizeOptions.map((size) => DropdownMenuItem(value: size, child: Text(size))).toList(),
-                  onChanged: (val) {
-                    setState(() => _selectedSystemSize = val);
-                    _onFieldChanged(val ?? '');
-                  },
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: _applicationDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (date != null) {
-                      setState(() => _applicationDate = date);
-                      _onFieldChanged('');
-                    }
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Application Date', prefixIcon: Icon(Icons.calendar_today)),
-                    child: Text(AppDateUtils.formatDate(_applicationDate.toIso8601String())),
+
+                if (_entryType == 'customer') ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _consumerNumberController,
+                    decoration: const InputDecoration(labelText: 'Consumer / Light Bill No.', prefixIcon: Icon(Icons.numbers)),
+                    onChanged: _onFieldChanged,
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _pmSuryaGharApplicationIdController,
-                  decoration: const InputDecoration(labelText: 'PM Surya Ghar Application ID', prefixIcon: Icon(Icons.confirmation_number_outlined)),
-                  onChanged: _onFieldChanged,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _remarksController,
-                  decoration: const InputDecoration(labelText: 'Remarks', prefixIcon: Icon(Icons.notes)),
-                  maxLines: 2,
-                  onChanged: _onFieldChanged,
-                ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.location_on)),
+                    maxLines: 3,
+                    onChanged: _onFieldChanged,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedSystemSize,
+                    decoration: const InputDecoration(labelText: 'System Size', prefixIcon: Icon(Icons.solar_power)),
+                    hint: const Text('Select kW ▼'),
+                    items: _systemSizeOptions.map((size) => DropdownMenuItem(value: size, child: Text(size))).toList(),
+                    onChanged: (val) {
+                      setState(() => _selectedSystemSize = val);
+                      _onFieldChanged(val ?? '');
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _applicationDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date != null) {
+                        setState(() => _applicationDate = date);
+                        _onFieldChanged('');
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Application Date', prefixIcon: Icon(Icons.calendar_today)),
+                      child: Text(AppDateUtils.formatDate(_applicationDate.toIso8601String())),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _pmSuryaGharApplicationIdController,
+                    decoration: const InputDecoration(labelText: 'PM Surya Ghar Application ID', prefixIcon: Icon(Icons.confirmation_number_outlined)),
+                    onChanged: _onFieldChanged,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _remarksController,
+                    decoration: const InputDecoration(labelText: 'Remarks', prefixIcon: Icon(Icons.notes)),
+                    maxLines: 2,
+                    onChanged: _onFieldChanged,
+                  ),
+                ],
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _saveCustomer,
+                  onPressed: _isLoading ? null : _saveEntry,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   child: _isLoading 
                     ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('SAVE CUSTOMER', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    : Text(
+                        _entryType == 'lead' ? 'SAVE AS LEAD' : 'SAVE AS CUSTOMER',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
                 )
               ],
             ),

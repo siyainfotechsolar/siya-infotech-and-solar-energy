@@ -225,7 +225,7 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
         'mobile': cleanMobile,
         'email': email,
         'role': _role,
-        'category': category,
+        'category': category.displayName,
         'status': _status,
         'profile_photo_url': profilePhotoUrl,
       });

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -225,7 +226,9 @@ class _GeoTagPhotoCaptureDialogState extends State<GeoTagPhotoCaptureDialog> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(11),
-                      child: Image.file(_capturedImage!, fit: BoxFit.cover),
+                      child: kIsWeb
+                          ? Image.network(_capturedImage!.path, fit: BoxFit.cover)
+                          : Image.file(_capturedImage!, fit: BoxFit.cover),
                     ),
                     // Geo watermark badge overlay
                     Positioned(

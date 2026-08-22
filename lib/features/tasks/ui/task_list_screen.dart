@@ -9,10 +9,12 @@ import '../../../core/widgets/global_loading_overlay.dart';
 class TaskListScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   final String initialFilterPriority;
+  final String? initialStatusFilter;
   const TaskListScreen({
     super.key,
     this.initialIndex = 0,
     this.initialFilterPriority = 'all',
+    this.initialStatusFilter,
   });
 
   @override
@@ -23,6 +25,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
   late TabController _tabController;
   String _sortBy = 'date_desc'; // 'date_desc', 'date_asc', 'priority_desc', 'priority_asc'
   late String _filterPriority; // 'all', 'high', 'normal', 'low'
+  String? _statusFilter;
   String _searchQuery = '';
   final _searchController = TextEditingController();
 
@@ -30,6 +33,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
   void initState() {
     super.initState();
     _filterPriority = widget.initialFilterPriority;
+    _statusFilter = widget.initialStatusFilter;
     _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialIndex);
   }
 
@@ -224,9 +228,15 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
             filtered = searched.where((t) => (t['priority'] ?? 'normal').toLowerCase() == _filterPriority).toList();
           }
 
+          // Filter tasks based on status
+          var statusFiltered = filtered;
+          if (_statusFilter != null && _statusFilter != 'all') {
+            statusFiltered = filtered.where((t) => (t['status'] ?? '').toString().toLowerCase() == _statusFilter).toList();
+          }
+
           // Filter tasks based on tabs
-          final pendingTasks = filtered.where((t) => t['status'] != 'completed').toList();
-          final completedTasks = filtered.where((t) => t['status'] == 'completed').toList();
+          final pendingTasks = statusFiltered.where((t) => t['status'] != 'completed').toList();
+          final completedTasks = statusFiltered.where((t) => t['status'] == 'completed').toList();
 
           // Sort dynamically
           if (_sortBy == 'date_desc') {
@@ -234,7 +244,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
             completedTasks.sort((a, b) => (b['completed_at'] ?? b['created_at'] ?? '').compareTo(a['completed_at'] ?? a['created_at'] ?? ''));
           } else if (_sortBy == 'date_asc') {
             pendingTasks.sort((a, b) => (a['created_at'] ?? '').compareTo(b['created_at'] ?? ''));
-            completedTasks.sort((a, b) => (a['completed_at'] ?? a['created_at'] ?? '').compareTo(b['completed_at'] ?? b['created_at'] ?? ''));
+            completedTasks.sort((a, b) => (a['completed_at'] ?? a['created_at'] ?? '').compareTo(a['completed_at'] ?? a['created_at'] ?? ''));
           } else if (_sortBy == 'priority_desc') {
             pendingTasks.sort((a, b) => _priorityRank(b['priority']).compareTo(_priorityRank(a['priority'])));
             completedTasks.sort((a, b) => _priorityRank(b['priority']).compareTo(_priorityRank(a['priority'])));
@@ -266,6 +276,22 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
                   onChanged: (val) => setState(() => _searchQuery = val),
                 ),
               ),
+              if (_statusFilter != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Chip(
+                        label: Text('Status: ${_statusFilter!.replaceAll('_', ' ').toUpperCase()}'),
+                        onDeleted: () {
+                          setState(() {
+                            _statusFilter = null;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -287,23 +313,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
     );
   }
 
-  String _formatDateTime(String? dateTimeStr) {
-    if (dateTimeStr == null) return 'N/A';
-    try {
-      final d = DateTime.parse(dateTimeStr).toLocal();
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      final datePart = '${d.day} ${months[d.month - 1]} ${d.year}';
-      
-      final hour = d.hour == 0 ? 12 : (d.hour > 12 ? d.hour - 12 : d.hour);
-      final amPm = d.hour >= 12 ? 'PM' : 'AM';
-      final minutesStr = d.minute.toString().padLeft(2, '0');
-      final timePart = '${hour.toString().padLeft(2, '0')}:$minutesStr $amPm';
-      
-      return '$datePart — $timePart';
-    } catch (_) {
-      return dateTimeStr;
-    }
-  }
 
   Widget _buildTaskList(List<Map<String, dynamic>> tasks) {
     if (tasks.isEmpty) {
@@ -320,46 +329,43 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> with SingleTick
         itemBuilder: (context, index) {
           final task = tasks[index];
           final customer = task['customers'] as Map<String, dynamic>?;
+          final taskName = task['name'] ?? 'Unknown Task';
+          final custName = customer?['name'] ?? 'No Customer';
+          final status = task['status'] ?? 'pending';
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: ListTile(
-              title: Text(task['name'] ?? 'Unknown Task', style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
                 children: [
-                  const SizedBox(height: 4),
-                  Text('Customer: ${customer?['name'] ?? 'No Customer'}', style: const TextStyle(fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text('Assigned By: ${task['creator']?['name'] ?? 'System'}', style: const TextStyle(fontSize: 13, color: Colors.blueGrey)),
-                  const SizedBox(height: 2),
-                  Builder(
-                    builder: (context) {
-                      final staffList = (task['task_staff_list'] ?? task['task_staff']) as List?;
-                      final names = staffList != null
-                          ? staffList.map((ts) => (ts['staff'] as Map<String, dynamic>?)?['name']).whereType<String>().toList()
-                          : <String>[];
-                      final assignedTo = names.isNotEmpty ? names.join(', ') : 'None';
-                      return Text('Assigned To: $assignedTo', style: const TextStyle(fontSize: 13, color: Colors.blueGrey));
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  if (task['status'] == 'completed')
-                    Text(
-                      'Completed: ${_formatDateTime(task['completed_at'])}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    )
-                  else
-                    Text(
-                      'Created: ${_formatDateTime(task['created_at'])}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(custName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const SizedBox(height: 4),
+                        Text(taskName, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                        const SizedBox(height: 6),
+                        _buildStatusChip(status),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await TaskDetailsRouter.open(context, ref, task);
+                      ref.invalidate(taskListProvider);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('OPEN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
                 ],
               ),
-              trailing: _buildStatusChip(task['status'] ?? 'pending'),
-              onTap: () async {
-                await TaskDetailsRouter.open(context, ref, task);
-                ref.invalidate(taskListProvider);
-              },
             ),
           );
         },

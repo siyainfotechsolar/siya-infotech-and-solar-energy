@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/permission_service.dart';
 import '../ui/task_details_screen.dart';
-import '../ui/delivery_task_details_screen.dart';
-import '../ui/structure_task_details_screen.dart';
-import '../ui/wireman_task_details_screen.dart';
-import '../ui/supervisor_task_details_screen.dart';
+import '../ui/simple_task_details_screen.dart';
 
 /// Central Task Details Router
 /// Enforces role-specific Task Details screens and prevents staff members
@@ -24,25 +21,14 @@ class TaskDetailsRouter {
     Widget targetScreen;
 
     switch (category) {
-      case StaffCategory.deliveryStaff:
-        targetScreen = DeliveryTaskDetailsScreen(task: task);
-        break;
-
-      case StaffCategory.structureInstaller:
-        targetScreen = StructureTaskDetailsScreen(task: task);
-        break;
-
-      case StaffCategory.wireman:
-        targetScreen = WiremanTaskDetailsScreen(task: task);
-        break;
-
-      case StaffCategory.supervisor:
-        targetScreen = SupervisorTaskDetailsScreen(task: task);
-        break;
-
       case StaffCategory.admin:
-      default:
         targetScreen = TaskDetailsScreen(task: task);
+        break;
+
+      default:
+        // All staff categories (supervisor, wireman, installer, delivery, other, office)
+        // use the unified simple task details screen.
+        targetScreen = SimpleTaskDetailsScreen(task: task);
         break;
     }
 
@@ -59,17 +45,10 @@ class TaskDetailsRouter {
     required Map<String, dynamic> task,
   }) {
     switch (permissions.category) {
-      case StaffCategory.deliveryStaff:
-        return DeliveryTaskDetailsScreen(task: task);
-      case StaffCategory.structureInstaller:
-        return StructureTaskDetailsScreen(task: task);
-      case StaffCategory.wireman:
-        return WiremanTaskDetailsScreen(task: task);
-      case StaffCategory.supervisor:
-        return SupervisorTaskDetailsScreen(task: task);
       case StaffCategory.admin:
-      default:
         return TaskDetailsScreen(task: task);
+      default:
+        return SimpleTaskDetailsScreen(task: task);
     }
   }
 }

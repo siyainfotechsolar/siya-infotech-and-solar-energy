@@ -395,6 +395,7 @@ class StaffDetailsScreen extends ConsumerStatefulWidget {
 class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
   late Map<String, dynamic> _currentStaff;
   String _statusFilter = 'all';
+  String? _expandedSection;
 
   @override
   void initState() {
@@ -609,23 +610,6 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, String value) {
-    final selected = _statusFilter == value;
-    return ChoiceChip(
-      label: Text(label),
-      labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-        color: selected ? Colors.blue : Colors.black87,
-      ),
-      selected: selected,
-      onSelected: (val) {
-        if (val) {
-          setState(() => _statusFilter = value);
-        }
-      },
-    );
-  }
 
   void _showEditDialog() {
     showDialog(
@@ -804,6 +788,46 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     );
   }
 
+  Widget _buildCollapsibleSection({
+    required String title,
+    required String sectionKey,
+    required Widget child,
+  }) {
+    final isExpanded = _expandedSection == sectionKey;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              setState(() {
+                _expandedSection = isExpanded ? null : sectionKey;
+              });
+            },
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            trailing: Icon(
+              isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+              color: Colors.blueGrey,
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1, thickness: 1),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: child,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final historyAsync = ref.watch(staffWorkHistoryProvider(_currentStaff['id']));
@@ -842,380 +866,314 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Info Card
+              // --- Header Card (Basic info only) ---
               Card(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: _showPhotoOptions,
-                            child: Stack(
-                              children: [
-                                CircleAvatar(
-                                  radius: 32,
-                                  backgroundImage: (_currentStaff['profile_photo_url'] != null && _currentStaff['profile_photo_url'].toString().isNotEmpty)
-                                      ? NetworkImage(_currentStaff['profile_photo_url'])
-                                      : null,
-                                  backgroundColor: (_currentStaff['profile_photo_url'] != null && _currentStaff['profile_photo_url'].toString().isNotEmpty)
-                                      ? Colors.transparent
-                                      : (isActive ? Colors.green.shade100 : Colors.grey.shade300),
-                                  child: (_currentStaff['profile_photo_url'] != null && _currentStaff['profile_photo_url'].toString().isNotEmpty)
-                                      ? null
-                                      : Text(
-                                          (_currentStaff['name'] as String? ?? 'Unknown').isNotEmpty
-                                              ? (_currentStaff['name'] as String)[0].toUpperCase()
-                                              : 'S',
-                                          style: TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color: isActive ? Colors.green.shade900 : Colors.grey.shade700,
-                                          ),
-                                        ),
-                                ),
-                                if (ref.read(currentUserProvider)?.id == _currentStaff['id'] || ref.read(userRoleProvider).value == 'admin')
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.blue,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt,
-                                        size: 12,
-                                        color: Colors.white,
+                      GestureDetector(
+                        onTap: _showPhotoOptions,
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundImage: (_currentStaff['profile_photo_url'] != null && _currentStaff['profile_photo_url'].toString().isNotEmpty)
+                                  ? NetworkImage(_currentStaff['profile_photo_url'])
+                                  : null,
+                              backgroundColor: (_currentStaff['profile_photo_url'] != null && _currentStaff['profile_photo_url'].toString().isNotEmpty)
+                                  ? Colors.transparent
+                                  : (isActive ? Colors.green.shade100 : Colors.grey.shade300),
+                              child: (_currentStaff['profile_photo_url'] != null && _currentStaff['profile_photo_url'].toString().isNotEmpty)
+                                  ? null
+                                  : Text(
+                                      (_currentStaff['name'] as String? ?? 'Unknown').isNotEmpty
+                                          ? (_currentStaff['name'] as String)[0].toUpperCase()
+                                          : 'S',
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: isActive ? Colors.green.shade900 : Colors.grey.shade700,
                                       ),
                                     ),
+                            ),
+                            if (ref.read(currentUserProvider)?.id == _currentStaff['id'] || ref.read(userRoleProvider).value == 'admin')
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
                                   ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _currentStaff['name'] ?? 'Unknown',
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                                Text(role, style: TextStyle(color: Colors.grey.shade600)),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                            onPressed: _showEditDialog,
-                          ),
-                        ],
+                              ),
+                          ],
+                        ),
                       ),
-                      const Divider(),
-                      _buildInfoRow('Role:', role),
-                      _buildInfoRow('Mobile:', _currentStaff['mobile'] ?? 'N/A'),
-                      _buildInfoRow('Status:', isActive ? 'Active' : 'Inactive', color: isActive ? Colors.green : Colors.red),
-                      _buildInfoRow('App Version:', '${_currentStaff['app_version'] ?? "N/A"} (${_currentStaff['build_number'] ?? "N/A"})'),
-                      _buildInfoRow('Last Active:', _currentStaff['last_active_at'] != null ? AppDateUtils.formatDateTime(_currentStaff['last_active_at']) : 'N/A'),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _currentStaff['name'] ?? 'Unknown',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            Text(role, style: TextStyle(color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                        onPressed: _showEditDialog,
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Login Credentials Card (Admin View)
-              Card(
-                color: Colors.blue.shade50,
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.blue.shade200),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.vpn_key, color: Colors.blue),
-                          SizedBox(width: 8),
-                          Text('LOGIN CREDENTIALS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Text('Username / Mobile: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
-                          Expanded(
-                            child: SelectableText(
-                              _currentStaff['mobile'] ?? _currentStaff['email'] ?? 'N/A',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 18, color: Colors.blue),
-                            tooltip: 'Copy Username',
-                            onPressed: () {
-                              final text = _currentStaff['mobile'] ?? _currentStaff['email'] ?? '';
-                              Clipboard.setData(ClipboardData(text: text));
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username copied to clipboard!')));
-                            },
-                          ),
-                        ],
-                      ),
-                      if (_currentStaff['email'] != null) ...[
-                        Row(
-                          children: [
-                            const Text('Login Email: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
-                            Expanded(
-                              child: SelectableText(
-                                _currentStaff['email'] ?? '',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (ref.read(userRoleProvider).value == 'admin') ...[
-                        const Divider(),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PermissionManagementScreen(staffMember: _currentStaff),
-                                ),
-                              ).then((_) {
-                                ref.invalidate(staffListProvider);
-                              });
-                            },
-                            icon: const Icon(Icons.security, size: 18),
-                            label: const Text('MANAGE ACCESS & PERMISSIONS'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _showResetPasswordDialog,
-                            icon: const Icon(Icons.lock_reset, size: 18),
-                            label: const Text('RESET / CHANGE STAFF PASSWORD'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // KPI Counts (Today's Assigned, Completed, Pending, Assigned Sites)
-              historyAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error computing stats: $e')),
-                data: (tasks) {
-                  final now = DateTime.now();
-                  final todayStart = DateTime(now.year, now.month, now.day);
-
-                  final todayAssigned = tasks.where((t) {
-                    final createdAt = DateTime.tryParse(t['created_at'] ?? '');
-                    return createdAt != null && createdAt.isAfter(todayStart);
-                  }).length;
-
-                  final todayCompleted = tasks.where((t) {
-                    if (t['status'] != 'completed') return false;
-                    final completedAt = DateTime.tryParse(t['completed_at'] ?? '');
-                    return completedAt != null && completedAt.isAfter(todayStart);
-                  }).length;
-
-                  final pendingTasks = tasks.where((t) => t['status'] != 'completed').length;
-                  final assignedSites = tasks.map((t) => t['customer_id']).where((id) => id != null).toSet().length;
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'TODAY',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildKpiRow('Assigned Tasks', todayAssigned),
-                      _buildKpiRow('Completed', todayCompleted, color: Colors.green),
-                      _buildKpiRow('Pending', pendingTasks, color: Colors.orange),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'CUSTOMERS / SITES',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildKpiRow('Assigned Sites', assignedSites, color: Colors.purple),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // Action Buttons: VIEW TASKS, VIEW SITES, ACTIVITY
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => StaffTasksScreen(staffId: _currentStaff['id'], staffName: _currentStaff['name']),
-                        ));
-                      },
-                      icon: const Icon(Icons.list_alt_outlined, size: 16),
-                      label: const Text('VIEW TASKS', style: TextStyle(fontSize: 11)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => StaffSitesScreen(staffId: _currentStaff['id'], staffName: _currentStaff['name']),
-                        ));
-                      },
-                      icon: const Icon(Icons.location_city_outlined, size: 16),
-                      label: const Text('VIEW SITES', style: TextStyle(fontSize: 11)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => StaffActivityFeedScreen(staffId: _currentStaff['id'], staffName: _currentStaff['name']),
-                  ));
-                },
-                icon: const Icon(Icons.history_outlined, size: 16),
-                label: const Text('ACTIVITY FEED'),
-              ),
-              const SizedBox(height: 24),
-
-              // Work History / Tasks header and List
-              const Text(
-                'WORK HISTORY / TASKS',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-              ),
-              const SizedBox(height: 12),
-
-              // Filter Chips
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
+              // 1. Contact Details Section
+              _buildCollapsibleSection(
+                title: 'Contact Details',
+                sectionKey: 'contact',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFilterChip('All', 'all'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Pending', 'pending'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('In Progress', 'in_progress'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Completed', 'completed'),
+                    _buildInfoRow('Role:', role),
+                    _buildInfoRow('Mobile:', _currentStaff['mobile'] ?? 'N/A'),
+                    _buildInfoRow('Status:', isActive ? 'Active' : 'Inactive', color: isActive ? Colors.green : Colors.red),
+                    _buildInfoRow('App Version:', '${_currentStaff['app_version'] ?? "N/A"} (${_currentStaff['build_number'] ?? "N/A"})'),
+                    _buildInfoRow('Last Active:', _currentStaff['last_active_at'] != null ? AppDateUtils.formatDateTime(_currentStaff['last_active_at']) : 'N/A'),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Icon(Icons.vpn_key, color: Colors.blue, size: 16),
+                        SizedBox(width: 8),
+                        Text('LOGIN CREDENTIALS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Username: ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey, fontSize: 13)),
+                        Expanded(
+                          child: SelectableText(
+                            _currentStaff['mobile'] ?? _currentStaff['email'] ?? 'N/A',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 16, color: Colors.blue),
+                          onPressed: () {
+                            final text = _currentStaff['mobile'] ?? _currentStaff['email'] ?? '';
+                            Clipboard.setData(ClipboardData(text: text));
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username copied!')));
+                          },
+                        ),
+                      ],
+                    ),
+                    if (ref.read(userRoleProvider).value == 'admin') ...[
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PermissionManagementScreen(staffMember: _currentStaff),
+                              ),
+                            ).then((_) {
+                              ref.invalidate(staffListProvider);
+                            });
+                          },
+                          icon: const Icon(Icons.security, size: 16),
+                          label: const Text('MANAGE PERMISSIONS'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _showResetPasswordDialog,
+                          icon: const Icon(Icons.lock_reset, size: 16),
+                          label: const Text('RESET PASSWORD'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
 
-              // Tasks List
-              historyAsync.when(
-                loading: () => const SizedBox(
-                  height: 150,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Center(child: Text('Error loading history: $e')),
-                data: (tasks) {
-                  final filteredTasks = _statusFilter == 'all'
-                      ? tasks
-                      : tasks.where((t) => (t['status'] as String? ?? 'pending').toLowerCase() == _statusFilter).toList();
+              // 2. Assigned Tasks (KPI counts)
+              _buildCollapsibleSection(
+                title: 'Assigned Tasks Summary',
+                sectionKey: 'tasks_summary',
+                child: historyAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('Error loading stats: $e', style: const TextStyle(color: Colors.red)),
+                  data: (tasks) {
+                    final now = DateTime.now();
+                    final todayStart = DateTime(now.year, now.month, now.day);
 
-                  if (filteredTasks.isEmpty) {
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Center(
-                          child: Text(
-                            _statusFilter == 'all'
-                                ? 'No task history found for this staff member.'
-                                : 'No task history matches the selected filter.',
-                            style: const TextStyle(color: Colors.grey),
-                          ),
+                    final todayAssigned = tasks.where((t) {
+                      final createdAt = DateTime.tryParse(t['created_at'] ?? '');
+                      return createdAt != null && createdAt.isAfter(todayStart);
+                    }).length;
+
+                    final todayCompleted = tasks.where((t) {
+                      if (t['status'] != 'completed') return false;
+                      final completedAt = DateTime.tryParse(t['completed_at'] ?? '');
+                      return completedAt != null && completedAt.isAfter(todayStart);
+                    }).length;
+
+                    final pendingTasks = tasks.where((t) => t['status'] != 'completed').length;
+                    final assignedSites = tasks.map((t) => t['customer_id']).where((id) => id != null).toSet().length;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text('TODAY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                        const SizedBox(height: 6),
+                        _buildKpiRow('Assigned Tasks', todayAssigned),
+                        _buildKpiRow('Completed', todayCompleted, color: Colors.green),
+                        _buildKpiRow('Pending', pendingTasks, color: Colors.orange),
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 6),
+                        const Text('SITES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                        const SizedBox(height: 6),
+                        _buildKpiRow('Assigned Sites', assignedSites, color: Colors.purple),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(context, MaterialPageRoute(
+                                    builder: (_) => StaffTasksScreen(staffId: _currentStaff['id'], staffName: _currentStaff['name']),
+                                  ));
+                                },
+                                icon: const Icon(Icons.list_alt_outlined, size: 14),
+                                label: const Text('TASKS LIST', style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(context, MaterialPageRoute(
+                                    builder: (_) => StaffSitesScreen(staffId: _currentStaff['id'], staffName: _currentStaff['name']),
+                                  ));
+                                },
+                                icon: const Icon(Icons.location_city_outlined, size: 14),
+                                label: const Text('SITES LIST', style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
+                      ],
                     );
-                  }
+                  },
+                ),
+              ),
 
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredTasks.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final t = filteredTasks[i];
-                      final tStatus = t['status'] as String? ?? 'pending';
-                      final custName = (t['customers'] as Map?)?['name'] as String? ?? 'No Customer';
-
-                      Color statusColor = Colors.orange;
-                      if (tStatus == 'completed') statusColor = Colors.green;
-                      if (tStatus == 'in_progress') statusColor = Colors.blue;
-
-                      return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        child: ListTile(
-                          onTap: () async {
-                            await TaskDetailsRouter.open(context, ref, t);
-                            ref.invalidate(staffWorkHistoryProvider(_currentStaff['id']));
-                          },
-                          title: Text(t['name'] ?? 'Task', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Customer: $custName', style: const TextStyle(fontSize: 13)),
-                              const SizedBox(height: 4),
-                              if (t['started_at'] != null)
-                                Text('Started: ${AppDateUtils.formatDateTime(t['started_at'])}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                              if (t['completed_at'] != null)
-                                Text('Completed: ${AppDateUtils.formatDateTime(t['completed_at'])}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            ],
+              // 3. Completed Tasks
+              _buildCollapsibleSection(
+                title: 'Completed Tasks',
+                sectionKey: 'completed',
+                child: historyAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('Error: $e'),
+                  data: (tasks) {
+                    final completedList = tasks.where((t) => (t['status'] as String? ?? 'pending').toLowerCase() == 'completed').toList();
+                    if (completedList.isEmpty) {
+                      return const Text('No completed tasks found.', style: TextStyle(color: Colors.grey));
+                    }
+                    return Column(
+                      children: completedList.map((t) {
+                        final custName = (t['customers'] as Map?)?['name'] as String? ?? 'No Customer';
+                        return Card(
+                          child: ListTile(
+                            onTap: () async {
+                              await TaskDetailsRouter.open(context, ref, t);
+                              ref.invalidate(staffWorkHistoryProvider(_currentStaff['id']));
+                            },
+                            title: Text(t['name'] ?? 'Task', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Customer: $custName'),
                           ),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              tStatus.toUpperCase(),
-                              style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.bold),
-                            ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              ),
+
+              // 4. Incomplete Tasks
+              _buildCollapsibleSection(
+                title: 'Incomplete Tasks',
+                sectionKey: 'incomplete',
+                child: historyAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('Error: $e'),
+                  data: (tasks) {
+                    final incompleteList = tasks.where((t) => (t['status'] as String? ?? 'pending').toLowerCase() != 'completed').toList();
+                    if (incompleteList.isEmpty) {
+                      return const Text('No incomplete tasks found.', style: TextStyle(color: Colors.grey));
+                    }
+                    return Column(
+                      children: incompleteList.map((t) {
+                        final custName = (t['customers'] as Map?)?['name'] as String? ?? 'No Customer';
+                        final status = t['status'] as String? ?? 'pending';
+                        return Card(
+                          child: ListTile(
+                            onTap: () async {
+                              await TaskDetailsRouter.open(context, ref, t);
+                              ref.invalidate(staffWorkHistoryProvider(_currentStaff['id']));
+                            },
+                            title: Text(t['name'] ?? 'Task', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Customer: $custName • Status: ${status.toUpperCase()}'),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                },
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              ),
+
+              // 5. Activity
+              _buildCollapsibleSection(
+                title: 'Activity Feed',
+                sectionKey: 'activity',
+                child: Column(
+                  children: [
+                    const Text('View full work logs and check-in timeline activity of this staff member.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => StaffActivityFeedScreen(staffId: _currentStaff['id'], staffName: _currentStaff['name']),
+                          ));
+                        },
+                        icon: const Icon(Icons.history_outlined),
+                        label: const Text('OPEN ACTIVITY FEED'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

@@ -7,9 +7,9 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/stage_config.dart';
 import '../providers/customer_provider.dart';
-import 'add_customer_screen.dart';
+import '../../../core/utils/priority_calculator.dart';
 import 'customer_details_screen.dart';
-import '../../leads/ui/add_lead_screen.dart';
+import 'add_customer_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/widgets/global_loading_overlay.dart';
 
@@ -17,11 +17,18 @@ class CustomerListScreen extends ConsumerStatefulWidget {
   final bool filterPriority;
   final String? filterAgeRange;
   final List<String>? filterStages;
+  final String? initialLoanStage;
+  final String? initialLoanIssueStatus;
+  final String? initialPriorityFilter;
+
   const CustomerListScreen({
     super.key,
     this.filterPriority = false,
     this.filterAgeRange,
     this.filterStages,
+    this.initialLoanStage,
+    this.initialLoanIssueStatus,
+    this.initialPriorityFilter,
   });
 
   @override
@@ -44,6 +51,9 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
           priority: widget.filterPriority ? true : null,
           ageRange: widget.filterAgeRange,
           stages: widget.filterStages ?? const [],
+          loanStage: widget.initialLoanStage,
+          loanIssueStatus: widget.initialLoanIssueStatus,
+          priorityFilter: widget.initialPriorityFilter ?? 'ALL',
         ));
       }
     });
@@ -199,109 +209,41 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
   }
 
   Widget _buildFilterRow(CustomerFilter filter) {
-    final villagesAsync = ref.watch(villageListProvider);
-    
+    final stagesMap = {
+      'ALL': 'ALL',
+      'PM SURYA GHAR': 'PM_SURYA_GHAR',
+      'LOAN': 'LOAN',
+      'MATERIAL': 'MATERIAL',
+      'WORK': 'WORK',
+      'PROBLEM': 'PROBLEM',
+      'COMPLETED': 'COMPLETED',
+    };
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Row(
         children: [
-          // Stage Dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-            child: DropdownButton<String>(
-              value: filter.stages.isEmpty ? 'All' : filter.stages.first,
-              icon: const Icon(Icons.arrow_drop_down, size: 18),
-              underline: const SizedBox(),
-              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13),
-              items: [
-                const DropdownMenuItem(value: 'All', child: Text('All Stages')),
-                ...StageConfig.stages.map((s) => DropdownMenuItem(value: s, child: Text(s))),
-              ],
-              onChanged: (val) {
-                final newStages = (val == null || val == 'All') ? <String>[] : [val];
-                ref.read(customerFilterProvider.notifier).updateFilter(
-                  filter.copyWith(stages: newStages),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Village Dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-            child: villagesAsync.when(
-              data: (villages) => DropdownButton<String>(
-                value: filter.village ?? 'All',
-                icon: const Icon(Icons.arrow_drop_down, size: 18),
-                underline: const SizedBox(),
-                style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13),
-                items: [
-                  const DropdownMenuItem(value: 'All', child: Text('All Villages')),
-                  ...villages.map((v) => DropdownMenuItem(value: v, child: Text(v))),
-                ],
-                onChanged: (val) {
-                  final newVillage = (val == null || val == 'All') ? '' : val;
-                  ref.read(customerFilterProvider.notifier).updateFilter(
-                    filter.copyWith(village: newVillage),
-                  );
+          ...stagesMap.entries.map((e) {
+            final isSel = filter.stageTag == e.value;
+            return Padding(
+              padding: const EdgeInsets.only(right: 6.0),
+              child: ChoiceChip(
+                label: Text(
+                  e.key,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                selected: isSel,
+                onSelected: (selected) {
+                  if (selected) {
+                    ref.read(customerFilterProvider.notifier).updateFilter(
+                      filter.copyWith(stageTag: e.value),
+                    );
+                  }
                 },
               ),
-              loading: () => const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-              error: (_, __) => const Text('Village Error'),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Loan Dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-            child: DropdownButton<String>(
-              value: filter.loan ?? 'All',
-              icon: const Icon(Icons.arrow_drop_down, size: 18),
-              underline: const SizedBox(),
-              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13),
-              items: const [
-                DropdownMenuItem(value: 'All', child: Text('All Loans')),
-                DropdownMenuItem(value: 'Yes', child: Text('Loan: Yes')),
-                DropdownMenuItem(value: 'No', child: Text('Loan: No')),
-              ],
-              onChanged: (val) {
-                ref.read(customerFilterProvider.notifier).updateFilter(
-                  filter.copyWith(loan: val ?? 'All'),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Installation Dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-            child: DropdownButton<String>(
-              value: filter.installation ?? 'All',
-              icon: const Icon(Icons.arrow_drop_down, size: 18),
-              underline: const SizedBox(),
-              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13),
-              items: const [
-                DropdownMenuItem(value: 'All', child: Text('All Inst. Status')),
-                DropdownMenuItem(value: 'Structure Pending', child: Text('Structure Pending')),
-                DropdownMenuItem(value: 'Structure Completed', child: Text('Structure Completed')),
-                DropdownMenuItem(value: 'Panel Pending', child: Text('Panel Pending')),
-                DropdownMenuItem(value: 'Panel Completed', child: Text('Panel Completed')),
-                DropdownMenuItem(value: 'Wiring Pending', child: Text('Wiring Pending')),
-                DropdownMenuItem(value: 'Wiring Completed', child: Text('Wiring Completed')),
-                DropdownMenuItem(value: 'Installation Completed', child: Text('Installation Completed')),
-              ],
-              onChanged: (val) {
-                ref.read(customerFilterProvider.notifier).updateFilter(
-                  filter.copyWith(installation: val ?? 'All'),
-                );
-              },
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
@@ -352,7 +294,7 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                             onPressed: _exportCustomers,
                           ),
                           TextButton.icon(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddLeadScreen())),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCustomerScreen())),
                             icon: const Icon(Icons.add, color: Colors.blue),
                             label: const Text('NEW', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                           ),
@@ -368,6 +310,57 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 4.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Center(child: Text('ALL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    selected: filter.subType == 'all',
+                    onSelected: (selected) {
+                      if (selected) {
+                        _searchController.clear();
+                        ref.read(customerFilterProvider.notifier).updateFilter(
+                          CustomerFilter(subType: 'all'),
+                        );
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Center(child: Text('LEAD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    selected: filter.subType == 'leads',
+                    onSelected: (selected) {
+                      if (selected) {
+                        _searchController.clear();
+                        ref.read(customerFilterProvider.notifier).updateFilter(
+                          CustomerFilter(subType: 'leads'),
+                        );
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Center(child: Text('CUSTOMER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    selected: filter.subType == 'customers',
+                    onSelected: (selected) {
+                      if (selected) {
+                        _searchController.clear();
+                        ref.read(customerFilterProvider.notifier).updateFilter(
+                          CustomerFilter(subType: 'customers'),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Search Input Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -388,6 +381,109 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                     : null,
               ),
               onChanged: (val) => _onSearchChanged(val, filter),
+            ),
+          ),
+          
+          // Priority Filters & Sorting Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: ['ALL', 'HIGH', 'MEDIUM', 'NORMAL'].map((p) {
+                        final isSel = filter.priorityFilter == p;
+                        Color chipColor = Colors.grey.shade600;
+                        if (p == 'HIGH') chipColor = Colors.red;
+                        else if (p == 'MEDIUM') chipColor = Colors.orange;
+                        else if (p == 'NORMAL') chipColor = Colors.green;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6.0),
+                          child: ChoiceChip(
+                            label: Text(
+                              p, 
+                              style: TextStyle(
+                                fontSize: 11, 
+                                fontWeight: FontWeight.bold,
+                                color: isSel ? Colors.white : chipColor,
+                              ),
+                            ),
+                            selected: isSel,
+                            selectedColor: chipColor,
+                            onSelected: (selected) {
+                              if (selected) {
+                                ref.read(customerFilterProvider.notifier).updateFilter(
+                                  filter.copyWith(priorityFilter: p),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: filter.sortBy,
+                      icon: const Icon(Icons.sort, size: 16, color: Colors.blueGrey),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                      items: const [
+                        DropdownMenuItem(value: 'priority', child: Text('Priority First')),
+                        DropdownMenuItem(value: 'oldest_update', child: Text('Oldest Update')),
+                        DropdownMenuItem(value: 'newest_customer', child: Text('Newest Customer')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(customerFilterProvider.notifier).updateFilter(
+                            filter.copyWith(sortBy: val),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: ref.watch(villageListProvider).when(
+                      data: (villages) => DropdownButton<String>(
+                        value: (filter.village == null || filter.village!.isEmpty) ? 'All' : filter.village!,
+                        icon: const Icon(Icons.location_city, size: 16, color: Colors.blueGrey),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                        items: [
+                          const DropdownMenuItem(value: 'All', child: Text('All Villages')),
+                          ...villages.map((v) => DropdownMenuItem(value: v, child: Text(v))),
+                        ],
+                        onChanged: (val) {
+                          final newVillage = (val == null || val == 'All') ? '' : val;
+                          ref.read(customerFilterProvider.notifier).updateFilter(
+                            filter.copyWith(village: newVillage),
+                          );
+                        },
+                      ),
+                      loading: () => const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      error: (_, __) => const Text('Error'),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           
@@ -447,35 +543,32 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
 
                       final c = customers[index];
                       final isSel = _selectedIds.contains(c['id']);
-                      final priority = _isPriority(c['application_date']);
+                      final finalPriority = c['final_priority'] ?? 'NORMAL';
+                      final stageLabel = _getStageLabel(c);
+                      final lastUpdateText = 'Last Update: ${c['last_update_label'] ?? 'Today'}';
 
-                      // Details for Sub-stages display if Stage is Installation
-                      final tasks = (c['site_installation_tasks'] as List?) ?? [];
-                      final genTasks = (c['tasks'] as List?) ?? [];
-
-                      String getSubStageStatus(String key) {
-                        for (var t in tasks) {
-                          final type = (t['task_type'] ?? '').toString().toLowerCase();
-                          final stat = (t['status'] ?? '').toString();
-                          if (type.contains(key.toLowerCase())) {
-                            if (stat.toLowerCase() == 'completed' || stat == '100%') return 'Completed';
-                            if (stat.toLowerCase() == 'in progress' || stat == '50%') return 'In Progress';
+                      int completedTasks = 0;
+                      if (c['stage'] == 'Installation') {
+                        final tasks = (c['site_installation_tasks'] as List?) ?? [];
+                        final genTasks = (c['tasks'] as List?) ?? [];
+                        
+                        bool isDone(String key) {
+                          for (var t in tasks) {
+                            final type = (t['task_type'] ?? '').toString().toLowerCase();
+                            final stat = (t['status'] ?? '').toString().toLowerCase();
+                            if (type.contains(key.toLowerCase()) && (stat == 'completed' || stat == '100%')) return true;
                           }
-                        }
-                        for (var g in genTasks) {
-                          final name = (g['name'] ?? '').toString().toLowerCase();
-                          final stat = (g['status'] ?? '').toString().toLowerCase();
-                          if (name.contains(key.toLowerCase()) || (key == 'Wiring' && (name.contains('electrical') || name.contains('wireman')))) {
-                            if (stat == 'completed') return 'Completed';
-                            if (stat == 'in_progress') return 'In Progress';
+                          for (var g in genTasks) {
+                            final name = (g['name'] ?? '').toString().toLowerCase();
+                            final stat = (g['status'] ?? '').toString().toLowerCase();
+                            if ((name.contains(key.toLowerCase()) || (key == 'Wiring' && (name.contains('electrical') || name.contains('wireman')))) && stat == 'completed') return true;
                           }
+                          return false;
                         }
-                        return 'Not Started';
+                        if (isDone('Structure')) completedTasks++;
+                        if (isDone('Panel')) completedTasks++;
+                        if (isDone('Wiring')) completedTasks++;
                       }
-
-                      final structure = getSubStageStatus('Structure');
-                      final panel = getSubStageStatus('Panel');
-                      final wiring = getSubStageStatus('Wiring');
 
                       return Card(
                         elevation: 1,
@@ -497,7 +590,12 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                             if (_selectedIds.isNotEmpty) {
                               _toggleSelection(c['id']);
                             } else {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: c)));
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CustomerDetailsScreen(customer: c),
+                                ),
+                              );
                             }
                           },
                           child: Padding(
@@ -505,107 +603,92 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Line 1: Name and ID
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        c['name'] ?? 'Unknown',
-                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
-                                      ),
-                                    ),
-                                    Text(
-                                      c['customer_id'] ?? 'N/A',
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black54),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                
-                                // Line 2: Mobile and Village
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      c['mobile'] ?? 'N/A',
-                                      style: const TextStyle(fontSize: 13, color: Colors.black54),
-                                    ),
-                                    Text(
-                                      c['village'] ?? 'N/A',
-                                      style: const TextStyle(fontSize: 13, color: Colors.black54),
-                                    ),
-                                  ],
-                                ),
-                                if (c['pm_surya_ghar_application_id'] != null && c['pm_surya_ghar_application_id'].toString().isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'PM Surya Ghar App ID: ${c['pm_surya_ghar_application_id']}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey),
-                                  ),
-                                ],
-                                const SizedBox(height: 8),
-
-                                // Priority Indicator If 15+ Days Old
-                                if (priority) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade50,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.red.shade200),
-                                    ),
-                                    child: const Text(
-                                      '🔴 PRIORITY',
-                                      style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-
-                                // Line 3: Stage and Age Days
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.lens, size: 10, color: StageConfig.stageColor(c['stage'])),
-                                        const SizedBox(width: 6),
                                         Text(
-                                          c['stage'] ?? 'Lead',
+                                          PriorityCalculator.getPriorityEmoji(finalPriority),
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          finalPriority,
                                           style: TextStyle(
-                                            color: StageConfig.stageColor(c['stage']),
-                                            fontSize: 13,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.bold,
+                                            color: finalPriority == 'HIGH'
+                                                ? Colors.red
+                                                : (finalPriority == 'MEDIUM' ? Colors.orange : Colors.green),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    if (c['application_date'] != null)
-                                      Text(
-                                        AppDateUtils.applicationAgeLabel(c['application_date']),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
+                                    Text(
+                                      c['customer_id'] ?? c['lead_id'] ?? 'N/A',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54),
+                                    ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-
-                                // Sub-stages progress list or Loan Yes/No display
-                                if (c['stage'] == 'Installation') ...[
-                                  Text(
-                                    '${_statusLabel(structure, 'Structure')}   ${_statusLabel(panel, 'Panel')}   ${_statusLabel(wiring, 'Wiring')}',
-                                    style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500),
-                                  ),
-                                ] else if (c['stage'] == 'Loan Processing') ...[
-                                  Text(
-                                    'Loan: ${c['loan_required'] == true ? "Yes" : "No"}',
-                                    style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500),
-                                  ),
-                                ],
+                                const SizedBox(height: 8),
+                                Text(
+                                  c['name'] ?? 'Unknown',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  c['mobile'] ?? 'N/A',
+                                  style: const TextStyle(fontSize: 13, color: Colors.black54),
+                                ),
+                                const SizedBox(height: 8),
+                                const Divider(height: 1, thickness: 0.5),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            stageLabel,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.blueGrey,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (c['stage'] == 'Loan Processing' && c['loan_stage'] != null && c['loan_stage'].toString().isNotEmpty && c['loan_stage'] != 'NOT STARTED') ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Sub-stage: ${c['loan_stage']}',
+                                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                          if (c['stage'] == 'Installation') ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Progress: $completedTasks/3 completed',
+                                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      lastUpdateText,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: (c['days_since_update'] as int? ?? 0) >= 15
+                                            ? Colors.red
+                                            : ((c['days_since_update'] as int? ?? 0) >= 7 ? Colors.orange : Colors.grey.shade600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
@@ -625,5 +708,47 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
         ],
       ),
     );
+  }
+
+  String _getStageLabel(Map<String, dynamic> c) {
+    final stage = c['stage'] ?? 'Lead';
+    final loanIssueStatus = c['loan_issue_status'];
+    final hasOpenProblem = loanIssueStatus == 'OPEN PROBLEM';
+    
+    final tasksList = [
+      ...(c['tasks'] as List? ?? []),
+      ...(c['site_installation_tasks'] as List? ?? []),
+    ];
+    final hasIncompleteTask = tasksList.any((t) => t['status'] == 'not_completed' || t['status'] == 'incomplete');
+    
+    if (hasOpenProblem || hasIncompleteTask) {
+      return '⚠️ ON HOLD / PROBLEM';
+    }
+    
+    if (stage == 'Lead') {
+      return 'Enquiry / Lead';
+    }
+    if (stage == 'PM Surya Ghar Application') {
+      return '🟡 NEW / PM SURYA GHAR';
+    }
+    if (stage == 'Loan Processing') {
+      return '🏦 LOAN';
+    }
+    if (stage == 'Material Required' || stage == 'Material Dispatched') {
+      return '📦 SITE MATERIAL';
+    }
+    if (stage == 'Installation') {
+      return '🔧 INSTALLATION';
+    }
+    if (stage == 'RTS') {
+      return '📄 RTS APPLICATION';
+    }
+    if (stage == 'Subsidy') {
+      return '💰 SUBSIDY PENDING';
+    }
+    if (stage == 'Completed') {
+      return '✅ COMPLETED';
+    }
+    return stage;
   }
 }

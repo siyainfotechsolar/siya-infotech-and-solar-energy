@@ -19,7 +19,7 @@ class PermissionManagementScreen extends ConsumerStatefulWidget {
 class _PermissionManagementScreenState extends ConsumerState<PermissionManagementScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
-  late String _selectedCategory;
+  late StaffCategory _selectedCategory;
   late DataAccessLevel _selectedAccessLevel;
   late Map<String, ModulePermissionState> _moduleStates;
 
@@ -55,7 +55,7 @@ class _PermissionManagementScreenState extends ConsumerState<PermissionManagemen
     }
   }
 
-  void _applyCategoryDefaults(String newCategory) {
+  void _applyCategoryDefaults(StaffCategory newCategory) {
     final staffId = widget.staffMember['id'] as String;
     final defaults = StaffPermissions.getDefault(staffId, newCategory);
     setState(() {
@@ -91,7 +91,7 @@ class _PermissionManagementScreenState extends ConsumerState<PermissionManagemen
           entityId: staffId,
           details: {
             'target_staff_name': widget.staffMember['name'],
-            'category': _selectedCategory,
+            'category': _selectedCategory.displayName,
             'access_level': _selectedAccessLevel.toDbString(),
           },
         );
@@ -212,8 +212,8 @@ class _PermissionManagementScreenState extends ConsumerState<PermissionManagemen
                   // 2. Staff Category Dropdown
                   const Text('STAFF CATEGORY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    initialValue: StaffCategory.all.contains(_selectedCategory) ? _selectedCategory : StaffCategory.otherStaff,
+                  DropdownButtonFormField<StaffCategory>(
+                    initialValue: _selectedCategory,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -221,7 +221,7 @@ class _PermissionManagementScreenState extends ConsumerState<PermissionManagemen
                     items: StaffCategory.all.map((c) {
                       return DropdownMenuItem(
                         value: c,
-                        child: Text(c, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        child: Text(c.displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -230,7 +230,7 @@ class _PermissionManagementScreenState extends ConsumerState<PermissionManagemen
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('Apply Category Defaults?'),
-                            content: Text('Changing category to $val will update default permissions. Continue?'),
+                            content: Text('Changing category to ${val.displayName} will update default permissions. Continue?'),
                             actions: [
                               TextButton(
                                 onPressed: () {
